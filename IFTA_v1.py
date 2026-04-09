@@ -911,14 +911,19 @@ class Wu(IFTA):
                     plt.show()
         Target_orig_fft=cp.fft.ifftshift(cp.fft.ifft2(cp.fft.ifftshift(cp.asarray(target_orig[0])), norm="ortho"))
         #Target_orig_fft=Target_orig_fft/cp.max(Target_orig_fft)
-        estimated_slm_phase=cp.angle(Target_orig_fft)+2 * pi * cp.random.normal(0,0.1*(1-cp.abs(Target_orig_fft/cp.max(cp.abs(Target_orig_fft)))),self.size)
+        estimated_slm_phase=cp.angle(Target_orig_fft)*0.0+2 * pi * cp.random.normal(0,0.0001*(1-cp.abs(Target_orig_fft/cp.max(cp.abs(Target_orig_fft)))),self.size)
         start_phase=estimated_slm_phase
-        #start_phase=start_phase = 2 * pi * cp.random.normal(0, 0.2, size)
+        #start_phase= 2 * pi * cp.random.normal(0, 0.2, size)
 
+        local_y = np.arange(size[0]) - (size[0] / 2.0) + 0.5
+        local_x = np.arange(size[1]) - (size[1] / 2.0) + 0.5
+
+        start_phase = 0.00002 * (local_y[:, None] ** 2 + local_x[None, :] ** 2)
+        start_phase = cp.asarray(start_phase)
         # #curved start phase:
         # for i in range(size[0]):
         #     for j in range(size[1]):
-        #         start_phase[i][j] = (0.0002 * (i - (size[0] / 2.0) + 0.5) ** 2 + 0.0002 * (
+        #         start_phase[i][j] = (0.00002 * (i - (size[0] / 2.0) + 0.5) ** 2 + 0.00002 * (
         #                     j - (size[1] / 2.0) + 0.5) ** 2)  # MDS Enter center of the beam here
 
         self.p = start_phase
@@ -1015,6 +1020,7 @@ class Wu(IFTA):
 
             Target_orig_fft=cp.fft.ifftshift(cp.fft.ifft2(cp.fft.ifftshift(cp.asarray(target_orig[0])), norm="ortho"))
             #Target_orig_fft=Target_orig_fft/cp.max(Target_orig_fft)
+            print("Limit Schatrz", cp.mean(cp.abs(Target_orig_fft))**2/cp.mean(cp.abs(Target_orig_fft)**2))
             estimated_slm_phase=cp.angle(Target_orig_fft)+2 * pi * cp.random.normal(0,0.05*(1-cp.abs(Target_orig_fft/cp.max(cp.abs(Target_orig_fft)))),self.size)
 
 
@@ -2045,6 +2051,12 @@ class Wu(IFTA):
                 self.step_updatedloop_torch()
                 self.stepnum += 1
             # 1. Apply the box mask
+            print("type",type(self.outer_num))
+            A_t_exponent=max(0.15+self.outer_num*0.002,0.05)
+            # if self.outer_num<50:
+            P_t_exponent=max(0.15+self.outer_num*0.002,0.05)
+            # else:
+            #     P_t_exponent=0.0
             image_field_box = self.image_field * self.ones_box
             image_field_mask = (self.image_field * self.mask)
             image_field_mask =image_field_mask *torch.sqrt(torch.sum(torch.abs(self.A_t_orig)**2)/torch.sum(torch.abs(image_field_mask)**2))
@@ -2052,11 +2064,41 @@ class Wu(IFTA):
             #self.A_t=torch.where( self.mask == 1,self.A_t * (self.A_t_orig / (torch.abs(image_field_box) + 1e-18)) ** (0.1*(1-self.outer_num*(1/100))),self.A_t_orig) #Decreasing feedback
             #self.A_t=torch.where( self.mask == 1,self.A_t * (self.A_t_orig / (torch.abs(image_field_box) + 1e-18)) ** (0.9),self.A_t_orig) #Decreasing feedback with box
             self.A_t = torch.where(self.mask == 1,
-                                   self.A_t * (self.A_t_orig / (torch.abs(image_field_mask) + 1e-18)) ** (0.15),
+                                   self.A_t * (self.A_t_orig / (torch.abs(image_field_mask) + 1e-18)) ** (A_t_exponent),
                                    self.A_t_orig)
 
-            self.P_t = torch.where(self.mask == 1, self.P_t_orig + (self.P_t - (torch.angle(image_field_box))) * 0.00,
-                                 self.P_t_orig)
+            # self.P_t = torch.where(self.mask == 1, self.P_t_orig + (self.P_t - (torch.angle(image_field_box))) * 0.00,
+            #                      self.P_t_orig)
+            print("A_t_orig_max",torch.max(torch.abs(self.A_t_orig)))
+            # testing=torch.where(torch.abs(self.A_t_orig)>0.02,torch.abs(self.A_t_orig),0)
+            # plt.imshow(testing.detach().cpu().numpy())
+            # plt.show()
+            # self.P_t = torch.where(torch.abs(self.A_t_orig)>0.02, self.P_t + (self.P_t_orig - (torch.angle(image_field_box))) * 0.01,
+            #                      self.P_t_orig)
+
+            mask_phasefb = torch.abs(self.A_t_orig) > 0.01
+
+            phase_est_phasefb = torch.angle(image_field_box)
+
+            delta_phasefb = self.P_t_orig - phase_est_phasefb
+
+            # global phase offset via complex correlation
+            global_offset_phasefb = torch.angle(
+                torch.sum(torch.exp(1j * delta_phasefb)[mask_phasefb])
+            )
+
+            phase_diff_phasefb = torch.angle(
+                torch.exp(1j * (delta_phasefb - global_offset_phasefb))
+            )
+
+            self.P_t = torch.where(
+                mask_phasefb,
+                self.P_t + (P_t_exponent) * phase_diff_phasefb,
+                self.P_t_orig
+            )
+
+
+
             orig_norm = torch.norm(self.A_t_orig)
             current_norm = torch.norm(self.A_t)
             self.A_t *= (orig_norm / (current_norm + 1e-18))
@@ -2176,9 +2218,9 @@ class Wu(IFTA):
 
 
             # 2. --- ITERATIVE LOOP ---
-        lr = 0.002  # 5
+        lr = 0.02  # 5
         epochs = 2000
-        target_loss=1e-1
+        target_loss=0.1e-1#+ 5e-1#*0.005
         patience=100
         best_loss=float('inf')
         patience_counter=0
@@ -2256,14 +2298,14 @@ class Wu(IFTA):
             #self.image_field = U_out #original used
             self.image_field = U_out / torch.sqrt(torch.sum(torch.abs(U_out) ** 2))
 
-            # amps_current = (
-            # [torch.abs(self.image_field[int(np.round(spotnum[0])), int(np.round(spotnum[1]))]) for spotnum in
-            #  self.spots])
+            amps_current = (
+            [torch.abs(self.image_field[int(np.round(spotnum[0])), int(np.round(spotnum[1]))]) for spotnum in
+             self.spots])
             # # phase_current = (
             # # [torch.angle(self.image_field[int(np.round(spotnum[0])), int(np.round(spotnum[1]))]) for spotnum in
             # #  self.spots])
-            # amps_current = torch.stack(amps_current)
-            # amps_current = amps_current / torch.max(amps_current)
+            amps_current = torch.stack(amps_current)
+            amps_current = amps_current / torch.max(amps_current)
             # # # phase_current = torch.stack(phase_current)
             # # # print("amps_current", amps_current)
             # # # print("phase_current", phase_current)
@@ -2284,7 +2326,7 @@ class Wu(IFTA):
             # #
             # #
             # #
-            # err = torch.abs(amps_current) - torch.abs(torch.as_tensor(amps_target_orig,device=self.device))#-torch.as_tensor(wuamps0)  # amplitude error for each beam
+            err = torch.abs(amps_current) - torch.abs(torch.as_tensor(amps_target_orig,device=self.device))#-torch.as_tensor(wuamps0)  # amplitude error for each beam
             # # err_phase = torch.as_tensor(phase_current,device=self.device) - torch.as_tensor(wuphases0 - cp.array(
             # #     target_phase_curve),device=self.device)  # phase error for each beam
             #
@@ -2302,7 +2344,7 @@ class Wu(IFTA):
             #loss= loss_ionpos.real+0.01*torch.mean(torch.abs(err))#-0.01*torch.log(Efficiency_beam_intensity + 1e-18)#+0.1*torch.mean(torch.abs(err)).real #-0.001*torch.log(Efficiency_beam_intensity + 1e-18)
             ##loss=(1-Fidelity_loss)+1*torch.max(torch.tensor(0.0),0.12-Efficiency_beam_intensity)
             #loss=(loss_difference)
-            loss=(loss_complexoverlap)#+0.3*torch.mean(torch.abs(err))#+4*(torch.max(torch.tensor(0.0),0.24-Efficiency_beam_intensity))#+torch.mean(torch.abs(err))
+            loss=(loss_complexoverlap)#+0.1*torch.mean(torch.abs(err))#+4*(torch.max(torch.tensor(0.0),0.24-Efficiency_beam_intensity))#+torch.mean(torch.abs(err))
 
 
 
@@ -2372,6 +2414,8 @@ class Wu(IFTA):
                 print('loss', loss.item(), 'amps_error', torch.mean(torch.abs(err)).item(), 'phase_error',
                       torch.mean(torch.abs(err_phase)).item())
                 loss_track.append(loss.item())
+
+                print("amps_current", amps_current)
 
                 #print(f'Epoch {epoch + 1}/{epochs}, Loss: {loss.item():.6f}' + " fidelity:", fidelity_track[-1],
                 #      " eff:", efficiency_track[-1])
@@ -3537,6 +3581,8 @@ class OuterLoop:
         # plt.imshow(np.abs(target_orig[0].get()))
         # plt.title("target_orig")
         # plt.figure()
+        # plt.plot(np.abs(target_orig[0][1024,:].get()))
+        # plt.figure()
         # plt.imshow(np.angle(target_orig[0].get()))
         # plt.title("target_orig_angle")
         # plt.show()
@@ -3561,7 +3607,7 @@ class OuterLoop:
         # plt.title("input")
         # plt.show()
 
-        method_algorithm="grad"#_old_recovery"
+        method_algorithm="grad"
         if method_algorithm=="wu": #Wu
             print("Method: ", method_algorithm)
             for m in range(M):
@@ -3888,7 +3934,7 @@ class OuterLoop:
 
         # print(figs[2])
         #plot_gradient(self.wus[self.min_it].image_field, fig=figs[2], intensity=True, imag=self.imag)#orig wus object
-        plot_gradient(self.wusImageField[self.min_it], fig=figs[2], intensity=True, imag=self.imag)
+        plot_gradient(self.wusImageField[self.min_it], fig=figs[2], intensity=True, imag=self.imag,phase_tem_compensation=self.phase_tem_compensation)
 
         # Plot the efficiency, nonuniformity and phase error for the best iteration
         if figs[0] is None:
@@ -4292,7 +4338,7 @@ def test_amps(m=4,n=5, N=60, size=(1024,1272), beams0=(1., 1., 1., 1., 1.), beam
 
 
 # Plot the horizontal electric field gradient at the center of the image
-def plot_gradient(field, coord=False, axis=0, target=None, fig=None, intensity=False, norm_coords=False, imag=True, norm=False, grid=False):
+def plot_gradient(field, coord=False, axis=0, target=None, fig=None, intensity=False, norm_coords=False, imag=True, norm=False, grid=False,phase_tem_compensation=None):
     # print(fig)
     if True:
         plt.imshow(np.abs(field.get())**2)
@@ -4302,21 +4348,35 @@ def plot_gradient(field, coord=False, axis=0, target=None, fig=None, intensity=F
         plt.imshow(np.abs(field.get()))
         plt.title("Final field magnitude")
         plt.colorbar()
+        plt.figure()
+        plt.plot(np.abs(field[1024,:].get()))
         plt.show()
         plt.imshow(np.angle(field.get()))
         plt.title("Final field angle")
         plt.colorbar()
         plt.show()
+        if phase_tem_compensation is not None:
+            plt.imshow(np.mod(np.angle(field.get())-np.angle(phase_tem_compensation),2*np.pi))
+            plt.title("Final field angle - phase tem compensation")
+            plt.colorbar()
+            plt.show()
     if coord:
         coord = np.where(np.abs(field) == np.max(np.abs(field)))[0][0]
         # print(coord)
     else:
-        coord = len(field) / 2 - 1
+        coord = np.where(np.abs(field) == np.max(np.abs(field)))[0][0]
+        #coord = len(field) / 2 - 1
     # E_t = np.real(target_field[len(target_field) / 2 - 1, :].get())
     E_im = field[coord, :].get()
+    E_im /= np.max(np.abs(E_im))
     if norm:
         E_im /= np.max(np.abs(E_im))
     # plt.figure()
+
+    plt.figure()
+    plt.plot(np.arange(len(E_im)),np.abs(E_im))
+    plt.plot(np.arange(len(E_im)), np.where(np.abs(E_im)>0.1,np.mod(np.angle(E_im)-np.angle(phase_tem_compensation[int(coord), :])+1,2*np.pi),0))
+    plt.title("Phase crossection")
 
     if fig is None:
         plt.figure()
@@ -4333,6 +4393,7 @@ def plot_gradient(field, coord=False, axis=0, target=None, fig=None, intensity=F
     if imag:
         plotter.plot(x_axis, np.real(E_im), label='E field (real)')
         plotter.plot(x_axis, np.imag(E_im), label='E field (imag)')
+        plotter.plot(x_axis, np.abs(E_im), label='E field (abs)')
     else:
         plotter.plot(x_axis, np.real(E_im), label='$\\vec E$')
     # plt.plot([i + 0.5 for i in range(len(target_field[1]) - 1)], [E_t[i + 1] - E_t[i] for i in range(len(E_t) - 1)],

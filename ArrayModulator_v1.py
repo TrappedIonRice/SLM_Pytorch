@@ -294,7 +294,7 @@ class ArrayModulator(slm.SLM):
                           name=name, amps=amps, amps_guess=amps_guess, phases=phases,
                           x_pitch=x_pitch,
                           phase_memory=phase_memory, size=size, tem01=tem01, uni_spacing=uni_spacing, xarblist0=xarblist0, yarblist0=yarblist0, anglearblist0=anglearblist0,double_amps_in=double_amps_in)
-        phase = outer.iterate_updatedloop_outer(N=20, M=M) #n=30
+        phase = outer.iterate_updatedloop_outer(N=2, M=M) #n=30
         #phase = outer.iterate_Gradient(N=5, M=M) #n=30
         if plots:
             # print(figs[2])
@@ -421,8 +421,8 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     # plt.show()
 
     scalepad=2
-    n =11
-    m =1
+    n =6
+    m =6
     amps = tuple(1. for i in range(n * m))#(1.0,1.0,1.0,1.0)#
     double_amps_in = tuple(1. for i in range(2*n * m))
     # measuredlist=(59,54.5,58.89,58.46,59.52,56.71,61.26,61.26,62.88,60.89,62.51,69.24,63.2,63.32,68.56,56.90,63.26,60.64,64.75,53.10,57.77,54.91)
@@ -505,7 +505,7 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     #amps=amps/np.max(amps)
 
     #n, m, amps, phases, uni_spacing, x_pitch0, tem01_0,xarblist0, yarblist0, anglearblist0 = choose_pattern("tem00_47_1_u",scalepad)
-    uni_spacing, x_pitch0, tem01_0, xarblist0, yarblist0, anglearblist0 = True,0.0063,True,None,None,None
+    uni_spacing, x_pitch0, tem01_0, xarblist0, yarblist0, anglearblist0 = True,0.0063,False,None,None,None
 
     #double_amps_in=np.repeat(np.array(amps), 2)
     double_amps_in=tuple(double_amps_in)
@@ -521,7 +521,7 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     #phases=(0.0,0.0,0.2,0.0,0.0)
     amps_guess = amps
     # MDS #Target curve compensation
-    curvature_list=np.linspace(0.75,4,1)
+    curvature_list=np.linspace(0*0.75,4,1)
     for curvature_num in curvature_list:
         print("curvature_num: ",curvature_num)
         global_variables.curvature.append(curvature_num)
@@ -542,10 +542,16 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
                 #target_phase[i][j] = c * ((i - 511) * 53.651 + 1672 - d) ** 2 / 2 + a * (
                 #       (j - 635.5) * 41.4555 + 2070 - b) ** 2 / 2  # MDS Enter center of the beam here
                 target_phase[i][j] = c * (i - ((1024-d_off)*scalepad/2.0)+0.5)** 2 + a *(j - ((1272-b_off)*scalepad/2.0)+0.5) ** 2  # MDS Enter center of the beam here
+
+        #To simulate bowman paper grid's LG00 type phase pattern:
+        # for i in range(int(1024 * scalepad)):
+        #     for j in range(int(1272 * scalepad)):
+        #         target_phase[i][j] +=0*( np.arctan2((j - ((1272 - b_off) * scalepad / 2.0) + 0.5), (
+        #                     i - ((1024 - d_off) * scalepad / 2.0) + 0.5)) ) # MDS Enter center of the beam here
+
         #target_phase = target_phase[462:562, 586:686]
         #target_phase = target_phase[362:662, 486:786]
-        #plt.imshow(target_phase)
-        #plt.show()
+
         target_phase = slm.pad_border(target_phase, (int(1024*scalepad), int(1272*scalepad)))
         # plt.imshow(target_phase)
         # plt.title("targetphase")
@@ -554,7 +560,7 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
         # MDS
         plotshow = False
         wu_1x4_full = mod.wu_algorithm2D(n=n, m=m,phase_tem_compensation=np.exp(1j * np.array(target_phase)),#MDS
-                                    M=40, name='wu_1x4', amps=amps, amps_guess=amps_guess, phases=phases,
+                                    M=160, name='wu_1x4', amps=amps, amps_guess=amps_guess, phases=phases,
                                     x_pitch=x_pitch0, plots=plotshow,
                                     input_profile=profile.Profile.input_gaussian(beam_size=(0.55*(1/scalepad), 0.55*(1/scalepad)),
                                                                                  size=(int(1024*scalepad), int(1272*scalepad))), phase_memory=True,
@@ -568,7 +574,8 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     np.save(r'curvature_plots/final_ion_fidelity_curvature.npy', global_variables.final_ion_fidelity_curvature)
 
     if plotshow:
-        plt.imshow(wu_1x4_full)
+        plt.imshow(np.mod(wu_1x4_full+np.pi,2*np.pi))
+        plt.colorbar()
         plt.title('wu_1x4_full')
         plt.show()
     print("phase done")

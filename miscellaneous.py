@@ -95,10 +95,41 @@ def fftpropagatetest():
     plt.imshow(np.abs(field_out))
     plt.show()
 
+def testing_phase():
+    scalepad=2
+    curvature_list=np.linspace(0*0.75,4,1)
+    for curvature_num in curvature_list:
+        print("curvature_num: ",curvature_num)
+        a = 2*(-4.282766e-06)#(0.1027)*(1/24.0)* #-4.90392e-06  # -4.03456842e-06#-3.733022642775838e-06(1/scalepad**3)*
+        b = 2070#mds oct2070#2095#2071#1937.23#2070  # 2070 original
+        c = 2*(-4.482766e-06)#(0.1027)*(1/24.0)*  # -3.9478368e-06#-3.893853882563125e-06A(1/scalepad**3)*
+        d = 1672#mds oct1672 #1628#1573.195#1672  # 1712 #1672 original
+        a=1.15*np.pi/(1272*scalepad)*curvature_num#*0.6#1.2
+        c=1.49*np.pi/(1024*scalepad)*curvature_num#*0.6 #1.49
+        d_off=0
+        b_off=0
+        target_phase = np.zeros((int(1024*scalepad), int(1272*scalepad)))
+        for i in range(int(1024*scalepad)):
+            for j in range(int(1272*scalepad)):
+                # target_phase[i][j]=c*((i-512)*104+1500-d)**2/2+a*((j-636)*84+2000-b)**2/2
+                # target_phase[i][j] = c * ((i - 511) * 53.187*1.13 + 1573.195 - d) ** 2 / 2 + a * (
+                #            (j - 635.5) * 41.045*1.13 + 1937.23 - b) ** 2 / 2  # MDS
+                #target_phase[i][j] = c * ((i - 511) * 53.651 + 1672 - d) ** 2 / 2 + a * (
+                #       (j - 635.5) * 41.4555 + 2070 - b) ** 2 / 2  # MDS Enter center of the beam here
+                target_phase[i][j] = c * (i - ((1024-d_off)*scalepad/2.0)+0.5)** 2 + a *(j - ((1272-b_off)*scalepad/2.0)+0.5) ** 2  # MDS Enter center of the beam here
+
+        #To simulate bowman paper grid's phase pattern:
+        for i in range(int(1024 * scalepad)):
+            for j in range(int(1272 * scalepad)):
+                target_phase[i][j] = np.arctan2((j - ((1272-b_off)*scalepad/2.0)+0.5), (i - ((1024-d_off)*scalepad/2.0)+0.5))  # MDS Enter center of the beam here
+
+    plt.imshow(target_phase)
+    plt.show()
 
 if __name__ == '__main__':
     #datfilecreation()
     #curvatureview()
     #ffttest()
     #trialplot()
-    fftpropagatetest()
+    #fftpropagatetest()
+    testing_phase()
