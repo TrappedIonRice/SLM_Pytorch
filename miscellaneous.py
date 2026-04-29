@@ -126,10 +126,128 @@ def testing_phase():
     plt.imshow(target_phase)
     plt.show()
 
+
+def pandastesting():
+    import pandas as pd
+    import os
+
+    file_name = 'data_storage_14_04_26.csv'
+
+    # 1. Load existing data or create a new file
+    if os.path.exists(file_name):
+        df = pd.read_csv(file_name, index_col=0)
+    else:
+        # Initialize with at least one column/row or empty
+        df = pd.DataFrame()
+
+    # 2. Choose row and column names for data insertion
+    rownum=4
+    row_name = str(rownum)
+    col_name = 'Fidelity'
+    data_value = 0.95
+
+    # 3. Insert/Update data at the intersection
+    df.loc[row_name, col_name] = data_value
+
+    rownum=5
+    row_name = str(rownum)
+    col_name = 'Efficiency'
+    data_value = 0.98
+
+    # 3. Insert/Update data at the intersection
+    df.loc[row_name, col_name] = data_value
+
+    # 4. Save back to the file
+    df.to_csv(file_name)
+
+def plotfromdatastorage():
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    df = pd.read_csv("data_storage.csv")
+
+
+
+    plt.scatter(
+        #np.log10(1 - (df["Fidelity_ion"])),
+        df["Fidelity_ion"],
+        df["Efficiency"],
+    )
+    plt.show()
+
+    df_filtered1 = df[np.isclose(df["start_phase_curve"], 0.01)]
+
+    fig, ax1 = plt.subplots()
+
+    # First scale (Left)
+    ax1.scatter(df_filtered1["Curvature"],
+        df_filtered1["Fidelity_ion"], color='blue')
+    ax1.set_ylabel('Fidelity', color='blue')
+
+    # Second scale (Right)
+    ax2 = ax1.twinx()
+    ax2.scatter(df_filtered1["Curvature"],
+        df_filtered1["Efficiency"], color='red')
+    ax2.set_ylabel('Efficiency', color='red')
+
+    plt.show()
+
+
+
+    curvatures = np.linspace(0.0, 1.0, 11)
+    colors = plt.cm.viridis(np.linspace(0, 1, len(curvatures)))  # colormap
+
+
+    for curv_value, color in zip(curvatures, colors):
+        tol = 1e-6
+
+        df_filtered = df[np.isclose(df["Curvature"], curv_value, atol=tol)]
+        df_filtered = df_filtered[df_filtered["Fidelity_ion"] > 0]
+
+        plt.scatter(
+            np.log10(1-(df_filtered["Fidelity_ion"])),
+            df_filtered["Efficiency"],
+            color=color,
+            label=f"{curv_value:.2f}",
+            alpha=0.7
+        )
+
+    #plt.xscale("log")
+
+    plt.xlabel("Ion Fidelity (log10(1-F))")
+    plt.ylabel("Efficiency")
+    plt.title("Efficiency vs Ion Fidelity for different Curvatures")
+
+    plt.legend(title="Curvature", bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.grid(True, which="both", ls="--", alpha=0.5)
+
+    plt.tight_layout()
+    plt.show()
+
+def pickleplot():
+    import pickle
+    import cupy as cp
+    with open('nonunif_temp.pkl', 'rb') as file:
+        data = pickle.load(file)
+    print(data)
+    print(len(data))
+    print(type(data))
+    print(type(data[0]))
+    print(data[0].shape)
+    print(data[0])
+    #plt.plot(data.get())
+    plt.plot([np.asarray(x.get()) for x in data])
+    plt.show()
+
+
 if __name__ == '__main__':
     #datfilecreation()
     #curvatureview()
     #ffttest()
     #trialplot()
     #fftpropagatetest()
-    testing_phase()
+    #testing_phase()
+    #pandastesting()
+    plotfromdatastorage() #csv file
+    #pickleplot()

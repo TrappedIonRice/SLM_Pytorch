@@ -9,6 +9,7 @@ import laserbeamsize as lbs
 from skimage.transform import resize
 # from IFTA import plot_gradient
 from datetime import datetime
+import runsettings
 
 try:
     import cupy as cp
@@ -70,7 +71,7 @@ def temnm_Offcenter2Darb(slm, n=1, m=0, amp=1, w=(0.03, 0.1), x0=0.5, y0=0.5, an
     # Normalization as per your snippet
     w_norm = (w[0] / rows, w[1] / rows) #Original 20/01S/2026
     #w_norm = (np.sqrt(2)*0.25*w[0] / rows, np.sqrt(2)*0.25*w[1] / rows)# For gaussian
-    w_norm= (2/(2*pi*0.55*1024*0.5), 2/(2*pi*0.55*1024*0.5))
+    w_norm= (2/(2*pi*0.55*1024*0.5)*runsettings.waist_scale , 2/(2*pi*0.55*1024*0.5)*runsettings.waist_scale)
     # if w[0]>10:  Uncomment only for target_New
     #     w_norm = (2 / (2 * pi * 0.25 * 1024 * 0.5), 2 / (2 * pi * 0.25 * 1024 * 0.5))
     print("rows",rows,"cols",cols)
@@ -122,7 +123,7 @@ def temnm_Offcenter2Darb(slm, n=1, m=0, amp=1, w=(0.03, 0.1), x0=0.5, y0=0.5, an
     if m==1:  ##ORIGINAL
         field[y_start:y_end, x_start:x_end] = amp * (2*(I_rot - x0) / ( w_norm[0])) * cp.exp(-((I_rot - x0) ** 2 / ( 2*w_norm[0] ** 2) + (J_rot - y0) ** 2 / ( 2*w_norm[1] ** 2)))
     if m==0:
-        field[y_start:y_end, x_start:x_end] = amp * cp.exp(-((I_rot - x0) ** 2 / (w_norm[0] ** 2) + (J_rot - y0) ** 2 / (w_norm[1] ** 2)))
+        field[y_start:y_end, x_start:x_end] = amp * cp.exp(-((I_rot - x0) ** 2 / (2*w_norm[0] ** 2) + (J_rot - y0) ** 2 / (2*w_norm[1] ** 2)))
         print("gaussian here")
     # plt.imshow(cp.abs(field/cp.max(cp.abs(field))).get())
     # plt.title(("field normalised",w_norm))

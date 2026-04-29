@@ -7,6 +7,7 @@ from networkx import efficiency
 from sympy import false
 from sympy.physics.quantum.density import fidelity
 
+import runsettings
 from profile_v1 import Profile, temnm, laserbeamsizefromimage, propagate
 from slm_v1 import SLM
 from slm_v1 import rescale, pad_border
@@ -20,6 +21,7 @@ from scipy.signal import ZoomFFT
 import copy
 import torch
 import global_variables
+import runsettings
 
 try:
     import cupy as cp
@@ -870,7 +872,7 @@ class ThreeStep(IFTA):
 # Implement the algorithm in the Wu paper (phase and intensity control)
 class Wu(IFTA):
     def __init__(self, size=(1024,1272), input=Profile.input_gaussian(), target=Profile.spot_array(4, 4),
-                 wavelength=413e-9, f=100, waist=0.001, array=True, target_beams=None, res_factor=1, start_phase=None, phase_memory=False,phaseconstant=False,P_c_old=None,outer_num=0.0,target_orig=None,target_New=None):
+                 wavelength=413e-9, f=100, waist=0.001, array=True, target_beams=None, res_factor=1, start_phase=None, phase_memory=False,phaseconstant=False,P_c_old=None,outer_num=0.0,target_orig=None,tem01=False,target_New=None):
         # print('wu input', np.size(input))
         super().__init__(size=size, input=input, target=target, wavelength=wavelength, f=f, waist=waist)
 
@@ -909,24 +911,26 @@ class Wu(IFTA):
                     plt.imshow(np.abs(start_phase.get()))
                     plt.title("start_phase")
                     plt.show()
-        Target_orig_fft=cp.fft.ifftshift(cp.fft.ifft2(cp.fft.ifftshift(cp.asarray(target_orig[0])), norm="ortho"))
-        #Target_orig_fft=Target_orig_fft/cp.max(Target_orig_fft)
-        estimated_slm_phase=cp.angle(Target_orig_fft)*0.0+2 * pi * cp.random.normal(0,0.0001*(1-cp.abs(Target_orig_fft/cp.max(cp.abs(Target_orig_fft)))),self.size)
-        start_phase=estimated_slm_phase
-        #start_phase= 2 * pi * cp.random.normal(0, 0.2, size)
+            Target_orig_fft=cp.fft.ifftshift(cp.fft.ifft2(cp.fft.ifftshift(cp.asarray(target_orig[0])), norm="ortho"))
+            #Target_orig_fft=Target_orig_fft/cp.max(Target_orig_fft)
+            estimated_slm_phase=cp.angle(Target_orig_fft)+2 * pi * cp.random.normal(0,0.1*(1-cp.abs(Target_orig_fft/cp.max(cp.abs(Target_orig_fft)))),self.size)
+            start_phase=estimated_slm_phase
+            #start_phase= 2 * pi * cp.random.normal(0, 0.2, size)
 
-        local_y = np.arange(size[0]) - (size[0] / 2.0) + 0.5
-        local_x = np.arange(size[1]) - (size[1] / 2.0) + 0.5
+        if False: #For simple curved phase
 
-        start_phase = 0.00002 * (local_y[:, None] ** 2 + local_x[None, :] ** 2)
+            local_y = np.arange(size[0]) - (size[0] / 2.0) + 0.5
+            local_x = np.arange(size[1]) - (size[1] / 2.0) + 0.5
+
+            start_phase = runsettings.start_phase_curve * (local_y[:, None] ** 2 + local_x[None, :] ** 2) #0.00002
+            start_phase = cp.asarray(start_phase)
+            # #curved start phase:
+            # for i in range(size[0]):
+            #     for j in range(size[1]):
+            #         start_phase[i][j] = (0.00002 * (i - (size[0] / 2.0) + 0.5) ** 2 + 0.00002 * (
+            #                     j - (size[1] / 2.0) + 0.5) ** 2)  # MDS Enter center of the beam here
         start_phase = cp.asarray(start_phase)
-        # #curved start phase:
-        # for i in range(size[0]):
-        #     for j in range(size[1]):
-        #         start_phase[i][j] = (0.00002 * (i - (size[0] / 2.0) + 0.5) ** 2 + 0.00002 * (
-        #                     j - (size[1] / 2.0) + 0.5) ** 2)  # MDS Enter center of the beam here
-
-        self.p = start_phase
+        self.p = cp.asarray(start_phase)
         # plt.imshow(np.abs(np.mod(start_phase.get(),2*np.pi)))
         # plt.title("start_phase")
         # plt.show()
@@ -985,6 +989,14 @@ class Wu(IFTA):
 
         self.ones_box[int(size[0] / 2 - size[0] / 6):int(size[0] / 2 + size[0] / 6), int(size[1] / 2 - size[1] / 6):int(size[1] / 2 + size[1] / 6)] = 1
         #self.ones_box = cp.ones(size)
+        if True: #Having a circular region of interest
+            local_y = np.arange(size[0]) - (size[0] / 2.0) + 0.5
+            local_x = np.arange(size[1]) - (size[1] / 2.0) + 0.5
+
+            self.ones_box = cp.asarray(((local_y[:, None] ** 2 + local_x[None, :] ** 2) < 160**2).astype(int))
+
+        # plt.imshow(np.abs(self.ones_box.get()))
+        # plt.show()
 
 
 
@@ -1014,18 +1026,35 @@ class Wu(IFTA):
         #plt.show()
         #Get the spot positions and create a circle around it
         print(cp.multiply(cp.asarray(target_orig[1]),self.res_factor))
-        self.ion_mask = make_ion_mask_cp(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),radius=50)
+        self.ion_mask = make_ion_mask_cp(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),radius=10)#50
+
+        if tem01==True:
+            spots_temp=cp.multiply(cp.asarray(target_orig[1]), self.res_factor)
+            self.ion_mask_small = make_ion_mask_cp(size, spots=cp.array([(spots_temp[kk]+spots_temp[kk+1])/2.0 for kk in range(0,len(spots_temp),2)]),radius=2)
+            # plt.imshow(self.ion_mask_small.get())
+            # plt.show()
+        else:
+            spots_temp=cp.multiply(cp.asarray(target_orig[1]), self.res_factor)
+            self.ion_mask_small = make_ion_mask_cp(size, spots=spots_temp,radius=2)
+            # plt.imshow(self.ion_mask_small.get())
+            # plt.show()
+
         #self.ones_box = self.ion_mask
         if True: #Maximum efficiency check
 
             Target_orig_fft=cp.fft.ifftshift(cp.fft.ifft2(cp.fft.ifftshift(cp.asarray(target_orig[0])), norm="ortho"))
             #Target_orig_fft=Target_orig_fft/cp.max(Target_orig_fft)
             print("Limit Schatrz", cp.mean(cp.abs(Target_orig_fft))**2/cp.mean(cp.abs(Target_orig_fft)**2))
+            # plt.imshow(cp.abs(Target_orig_fft).get())
+            # plt.show()
             estimated_slm_phase=cp.angle(Target_orig_fft)+2 * pi * cp.random.normal(0,0.05*(1-cp.abs(Target_orig_fft/cp.max(cp.abs(Target_orig_fft)))),self.size)
 
 
             Estimated_image = cp.fft.fftshift(cp.fft.fft2(cp.fft.fftshift(cp.abs(self.input)*cp.exp(1j*estimated_slm_phase)), norm="ortho"))
-            Maximum_possible_efficiency= cp.sum((cp.abs(self.input))*(cp.abs(Target_orig_fft)))/(cp.sum(cp.abs(self.input)**2)*cp.sum(cp.abs(Target_orig_fft)**2))
+            Maximum_possible_efficiency_orig= cp.sum((cp.abs(self.input))*(cp.abs(Target_orig_fft)))/(cp.sum(cp.abs(self.input)**2)*cp.sum(cp.abs(Target_orig_fft)**2))
+            Maximum_possible_efficiency= cp.sum((cp.abs(self.input))*(cp.abs(Target_orig_fft)))**2/(cp.sum(cp.abs(self.input)**2)*cp.sum(cp.abs(Target_orig_fft)**2))
+            Maximum_possible_efficiency_complex= cp.sum((cp.conj(self.input*cp.exp(1j*(cp.angle(Target_orig_fft)))))*((Target_orig_fft)))**2/(cp.sum(cp.abs(self.input)**2)*cp.sum(cp.abs(Target_orig_fft)**2))
+
             Estimated_efficiency = cp.sum(cp.abs((cp.conj(Estimated_image)) * (cp.asarray(target_orig[0])) ))/ (
                         cp.sum(cp.abs(Estimated_image) ** 2) * cp.sum(cp.abs(cp.asarray(target_orig[0])) ** 2))
             
@@ -1056,6 +1085,8 @@ class Wu(IFTA):
                             cp.sum(cp.abs(Estimated_image) ** 2) * cp.sum(cp.abs(cp.asarray(target_New[0])) ** 2))
 
             print("Maximum_possible_efficiency",Maximum_possible_efficiency,"square",Maximum_possible_efficiency**2)
+            print("Maximum_possible_efficiency_complex", Maximum_possible_efficiency_complex, "square_complex",
+                  Maximum_possible_efficiency_complex ** 2)
             print("Estimated_efficiency",Estimated_efficiency)#,"Estimated eff New target",Estimated_efficiency_new_target)
         # plt.imshow(np.abs(Target_orig_fft.get()))
         # plt.title("target_orig_fft")
@@ -1103,15 +1134,15 @@ class Wu(IFTA):
 
         # True if the target is an array of beams
         self.array = array
-
-        if self.array:
-            self.nonunif.append(self.dev_amp(waist=0.001, target=self.target_amp))#original
-            self.phase_err.append(self.dev_phase(waist=0.001, target=self.target_phase))#original
-            #self.nonunif.append(cp.mean(cp.abs(cp.abs(self.beams(waist=0.0015)) - self.amps())))#MDS added
-            #self.phase_err.append(cp.mean(cp.abs(self.beams_phase(waist=0.0005) - self.phases())))#MDS added
-        else:
-            self.nonunif.append(self.nonuniformity())
-            self.phase_err.append(self.phase_error())
+        # #MDS commenting out this part to avoid having a starting nonunif term
+        # if self.array:
+        #     self.nonunif.append(self.dev_amp(waist=0.001, target=self.target_amp))#original
+        #     self.phase_err.append(self.dev_phase(waist=0.001, target=self.target_phase))#original
+        #     #self.nonunif.append(cp.mean(cp.abs(cp.abs(self.beams(waist=0.0015)) - self.amps())))#MDS added
+        #     #self.phase_err.append(cp.mean(cp.abs(self.beams_phase(waist=0.0005) - self.phases())))#MDS added
+        # else:
+        #     self.nonunif.append(self.nonuniformity())
+        #     self.phase_err.append(self.phase_error())
 
         self.phase_memory = phase_memory
 
@@ -1578,10 +1609,10 @@ class Wu(IFTA):
         # 1. Setup Feedback Constants
         if (self.stepnum // 2) % 2 == 0:
             #fb, fbmix = 0.2+0.6*(self.outer_num/100.0), 0.6+0.1*(self.outer_num/100.0)
-            fb, fbmix= 0.0,0.0#0.9-0.6*(self.outer_num/50.0), 0.4+0.2*(self.outer_num/50.0)
+            fb, fbmix= runsettings.fb_global ,runsettings.fbmix_global#0.9-0.6*(self.outer_num/50.0), 0.4+0.2*(self.outer_num/50.0)
         else:
             #fb, fbmix = 0.2+0.6*(self.outer_num/100.0), 0.6+0.1*(self.outer_num/100.0)
-            fb, fbmix = 0.0,0.0#0.9-0.6*(self.outer_num/50.0), 0.4+0.2*(self.outer_num/50.0)
+            fb, fbmix = runsettings.fb_global,runsettings.fbmix_global#0.9-0.6*(self.outer_num/50.0), 0.4+0.2*(self.outer_num/50.0)
 
         # 2. Extract Amplitude and Phase
         U_c = self.image_field
@@ -1603,7 +1634,7 @@ class Wu(IFTA):
         # torch.polar is the high-performance equivalent of A * exp(1j * P)
         U_alpha = torch.polar(A_alpha.real, P_alpha.real)
 
-        if self.stepstartflag != 0:
+        if True:#self.stepstartflag != 0:
             # Apply mask-based feedback
             U_alpha = (U_alpha * self.mask) - (fb * torch.polar(A_c.real, P_c.real) * (self.I - self.mask))
 
@@ -1616,7 +1647,7 @@ class Wu(IFTA):
         P_beta = self.P_t * (self.I - self.S) + P_c * self.S
         U_beta = torch.polar(A_beta.real, P_beta.real)
 
-        if self.stepstartflag != 0:
+        if True:#self.stepstartflag != 0:
             U_beta = (U_beta * self.mask) - (fb * torch.polar(A_c.real, P_c.real) * (self.I - self.mask))
         else:
             self.stepstartflag = 1
@@ -1670,7 +1701,7 @@ class Wu(IFTA):
                         torch.sum(torch.conj(torch.as_tensor(self.target_orig[0])) * torch.as_tensor(self.target_orig[0]) * self.ones_box)))).item())
 
                 efficiency=torch.sum(torch.abs(torch.conj(self.image_field) * self.image_field) * self.mask)/torch.sum(torch.abs(torch.conj(self.image_field) * self.image_field))
-                self.eff.append(efficiency.detach().cpu().numpy())
+                self.eff.append(efficiency.detach().cpu().item())
             if np.mod(self.stepnum,10)==0:
                 #plt.imshow(self.image_field.abs().detach().cpu().numpy())
                 #plt.title("image_field")
@@ -2031,7 +2062,7 @@ class Wu(IFTA):
         with torch.no_grad():
             vars_to_convert = [
                 'image_field', 'A_t', 'S', 'I', 'P_t', 'mask',
-                'ones_box', 'input', 'A_t_orig', 'P_t_orig', 'P_c_old'
+                'ones_box', 'input', 'A_t_orig', 'P_t_orig', 'P_c_old','ion_mask','ion_mask_small'
             ]
             for var in vars_to_convert:
                 val = getattr(self, var, None)
@@ -2039,7 +2070,7 @@ class Wu(IFTA):
                     # Use as_tensor to handle CuPy or NumPy inputs
                     tensor_val = torch.as_tensor(val, device=self.device,
                                                  dtype=torch.float32 if "P_" in var or var in ['S', 'I', 'mask',
-                                                                                               'ones_box'] else torch.complex64)
+                                                                                               'ones_box','ion_mask','ion_mask_small'] else torch.complex64)
                     setattr(self, var, tensor_val)
 
 
@@ -2052,20 +2083,62 @@ class Wu(IFTA):
                 self.stepnum += 1
             # 1. Apply the box mask
             print("type",type(self.outer_num))
-            A_t_exponent=max(0.15+self.outer_num*0.002,0.05)
+            #if self.outer_num == 0:
+            A_t_exponent=runsettings.exp_amp_global_wu#max(0.15+self.outer_num*0.002,0.05)
+            A_t_exponent_diff=runsettings.exp_amp_global_diff_wu
             # if self.outer_num<50:
-            P_t_exponent=max(0.15+self.outer_num*0.002,0.05)
+            P_t_exponent=runsettings.exp_phase_global_wu #max(0.15+self.outer_num*0.002,0.05)
             # else:
             #     P_t_exponent=0.0
             image_field_box = self.image_field * self.ones_box
-            image_field_mask = (self.image_field * self.mask)
+            print("type ion_mask",type(self.ion_mask))
+            image_field_mask = (self.image_field * self.ion_mask)#self.mask)
             image_field_mask =image_field_mask *torch.sqrt(torch.sum(torch.abs(self.A_t_orig)**2)/torch.sum(torch.abs(image_field_mask)**2))
             #self.target[0] = torch.where( self.mask == 1,self.target_orig_box * (self.target[0] / (torch.abs(image_field_box) + 1e-8)) ** 0.25,self.target_orig_box)
             #self.A_t=torch.where( self.mask == 1,self.A_t * (self.A_t_orig / (torch.abs(image_field_box) + 1e-18)) ** (0.1*(1-self.outer_num*(1/100))),self.A_t_orig) #Decreasing feedback
             #self.A_t=torch.where( self.mask == 1,self.A_t * (self.A_t_orig / (torch.abs(image_field_box) + 1e-18)) ** (0.9),self.A_t_orig) #Decreasing feedback with box
-            self.A_t = torch.where(self.mask == 1,
-                                   self.A_t * (self.A_t_orig / (torch.abs(image_field_mask) + 1e-18)) ** (A_t_exponent),
-                                   self.A_t_orig)
+            #uncomment below
+            # self.A_t = torch.where(self.mask == 1,
+            #                        self.A_t * (self.A_t_orig / (torch.abs(image_field_mask) + 1e-18)) ** (A_t_exponent),
+            #                        self.A_t_orig)
+
+            # epsW = 0.02  # threshold (tune this)
+            # magW = torch.abs(image_field_mask)
+            # alphaW = magW / (magW + epsW)  # smoothly goes 0 → 1
+            #
+            # ratio_updateW = self.A_t * (self.A_t_orig / (magW + 1e-6)) ** A_t_exponent
+            # diff_updateW = self.A_t +  (self.A_t_orig - magW)*0.15#*A_t_exponent
+            #
+            # self.A_t =alphaW * ratio_updateW + (1 - alphaW) * diff_updateW
+            # self.A_t = torch.where(self.ion_mask == 1,
+            #                        alphaW * ratio_updateW + (1 - alphaW) * diff_updateW,
+            #                        self.A_t_orig)
+
+            mag = torch.abs(image_field_mask)
+            eps = 1e-6
+
+            # smooth blending (ratio ↔ difference)
+            alpha = mag / (mag + 0.02)
+
+            ratio_update = self.A_t * (self.A_t_orig / (mag + eps)) ** A_t_exponent
+            diff_update = self.A_t + (self.A_t_orig - mag)*A_t_exponent_diff
+
+            A_new = alpha * ratio_update + (1 - alpha) * diff_update
+
+            gamma_out = runsettings.wu_gamma_out#0.8#0.85  # suppress outside-mask energy
+            beta_in = runsettings.wu_beta_in#1.2  # boost inside-mask correction
+
+            A_new = torch.where(self.mask == 1,
+                                A_new * beta_in,
+                                A_new * gamma_out)
+            orig_norm = torch.norm(self.A_t_orig)
+            current_norm = torch.norm(A_new)
+
+            A_new *= (orig_norm / (current_norm + 1e-8)) ** 0.5
+            self.A_t = A_new
+
+
+
 
             # self.P_t = torch.where(self.mask == 1, self.P_t_orig + (self.P_t - (torch.angle(image_field_box))) * 0.00,
             #                      self.P_t_orig)
@@ -2195,6 +2268,9 @@ class Wu(IFTA):
         self.stepnum = 0
         #self.totalsteperr = []
         loss_track=[]
+        plot_loss_overlap_complex=[]
+        plot_err_mean=[]
+        plot_eff_minus1=[]
 
         # 1. --- ONE-TIME CONVERSION ---
         # Convert all physics constants to Tensors before the loop
@@ -2202,7 +2278,7 @@ class Wu(IFTA):
         with torch.no_grad():
             vars_to_convert = [
                 'image_field', 'A_t', 'S', 'I', 'P_t', 'mask',
-                'ones_box', 'input', 'A_t_orig', 'P_t_orig', 'P_c_old','ion_mask'
+                'ones_box', 'input', 'A_t_orig', 'P_t_orig', 'P_c_old','ion_mask','ion_mask_small'
             ]
             for var in vars_to_convert:
                 val = getattr(self, var, None)
@@ -2218,13 +2294,16 @@ class Wu(IFTA):
 
 
             # 2. --- ITERATIVE LOOP ---
-        lr = 0.02  # 5
+        lr = runsettings.learning_rate # 5
         epochs = 2000
-        target_loss=0.1e-1#+ 5e-1#*0.005
-        patience=100
+        target_loss=0.01e-1#+ 5e-1#*0.005
+        patience=2000
         best_loss=float('inf')
         patience_counter=0
         phi_slm = torch.tensor(self.p,device=self.device, dtype=torch.float32,requires_grad=True )
+        # plt.imshow(torch.abs(phi_slm).detach().cpu().numpy())
+        # plt.title("phi_slm")
+        # plt.show()
         A_target_amp=torch.as_tensor(self.A_t_orig,device=self.device, dtype=torch.float32)
         P_target_phase=torch.as_tensor(self.P_t_orig,device=self.device, dtype=torch.float32)
         A_in=torch.as_tensor(cp.abs(self.input),device=self.device, dtype=torch.float32)
@@ -2245,6 +2324,12 @@ class Wu(IFTA):
 
 
         for epoch in range(epochs):
+            # if epoch>500:
+            #     for param_group in optimizer.param_groups:
+            #         param_group['lr'] = 0.004
+            # if epoch>1000:
+            #     for param_group in optimizer.param_groups:
+            #         param_group['lr'] = 0.004
             optimizer.zero_grad()
 
             U_out = torch.fft.fftshift(torch.fft.fft2(torch.fft.fftshift(A_in * torch.exp(1j * phi_slm))))
@@ -2278,8 +2363,8 @@ class Wu(IFTA):
             out_complex = A_out * torch.exp(1j * P_out)
             target_complex = A_target_amp * torch.exp(1j * P_target_phase)
 
-            out_complex = out_complex * self.ones_box
-            target_complex = target_complex * self.ones_box
+            out_complex = out_complex * self.ones_box # self.ion_mask#
+            target_complex = target_complex * self.ones_box #self.ion_mask#
 
             num = torch.sum(torch.conj(target_complex) * out_complex)
 
@@ -2289,6 +2374,18 @@ class Wu(IFTA):
             eta = num / (den + 1e-12)
 
             loss_complexoverlap = 100 * (1 - torch.real(eta))
+
+            out_complex_small = A_out * torch.exp(1j * P_out) * self.ion_mask_small#
+            target_complex_small = A_target_amp * torch.exp(1j * P_target_phase) * self.ion_mask_small#
+
+            num_small = torch.sum(torch.conj(target_complex_small) * out_complex_small)
+
+            den_small = torch.sqrt(torch.sum(torch.abs(out_complex_small) ** 2)) * \
+                  torch.sqrt(torch.sum(torch.abs(target_complex_small) ** 2))
+
+            eta_small = num_small / (den_small + 1e-12)
+
+            loss_complexoverlap_small = 100 * (1 - torch.real(eta_small))
 
             # loss_ionpos = ((1 - (
             #     torch.sum((torch.abs(A_out * A_target_amp) + 1e-18) * torch.cos(P_out - P_target_phase) * self.ion_mask)) / ((
@@ -2344,8 +2441,22 @@ class Wu(IFTA):
             #loss= loss_ionpos.real+0.01*torch.mean(torch.abs(err))#-0.01*torch.log(Efficiency_beam_intensity + 1e-18)#+0.1*torch.mean(torch.abs(err)).real #-0.001*torch.log(Efficiency_beam_intensity + 1e-18)
             ##loss=(1-Fidelity_loss)+1*torch.max(torch.tensor(0.0),0.12-Efficiency_beam_intensity)
             #loss=(loss_difference)
-            loss=(loss_complexoverlap)#+0.1*torch.mean(torch.abs(err))#+4*(torch.max(torch.tensor(0.0),0.24-Efficiency_beam_intensity))#+torch.mean(torch.abs(err))
 
+
+            #MAIN LOSS FUNCTION. Uncomment the rest of the loss components to give weightage to other metrics
+            loss=(loss_complexoverlap)#+5*(loss_complexoverlap_small)+5*torch.mean(torch.abs(err))*runsettings.efficiency_limit_scale+runsettings.efficiency_limit_scale*4*(torch.max(torch.tensor(0.0),runsettings.efficiency_limit-Efficiency_beam_intensity))#+torch.mean(torch.abs(err))
+
+            # if np.mod(int(epoch/100), 2) == 0:
+            #     loss=loss_complexoverlap#0.1*loss_complexoverlap+(1-Efficiency_beam_intensity)*0.02+2*torch.mean(torch.abs(err))
+            # else:
+            #     loss=(1-Efficiency_beam_intensity)*0.2#2*torch.mean(torch.abs(err))
+            # alpha_l = epoch / epochs
+            # loss = (1 - alpha_l) * loss_complexoverlap + (alpha_l) * torch.mean(torch.abs(err)) * 1 + alpha_l*(torch.max(torch.tensor(0.0),0.48-Efficiency_beam_intensity))
+            # if epoch<1100:
+            #     loss = (1-alpha_l) * loss_complexoverlap + (alpha_l) * (1-Efficiency_beam_intensity)*1
+            # else:
+            #     loss=loss_complexoverlap+torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1
+            #loss= loss_complexoverlap*((1-Efficiency_beam_intensity))**50
 
 
             if False:  # best loss
@@ -2374,7 +2485,8 @@ class Wu(IFTA):
                     efficiency = torch.sum(
                         torch.abs(torch.conj(self.image_field) * self.image_field) * self.mask) / torch.sum(
                         torch.abs(torch.conj(self.image_field) * self.image_field))
-                    self.eff.append(efficiency.detach().cpu().numpy())
+                    #self.eff.append(efficiency.detach().cpu().numpy()) #original revert back for type
+                    self.eff.append(efficiency.detach().cpu().item())
 
                     amps_current = (
                     [torch.abs(self.image_field[int(np.round(spotnum[0])), int(np.round(spotnum[1]))]) for spotnum in
@@ -2407,12 +2519,20 @@ class Wu(IFTA):
                         target_phase_curve),device=self.device)  # phase error for each beam
                     amps_error=torch.mean(torch.abs(err))
                     phase_error=torch.mean(torch.abs(err_phase))
-                    self.nonunif.append(amps_error.detach().cpu().numpy())
-                    self.phase_err.append(phase_error.detach().cpu().numpy())
+                    self.nonunif.append(amps_error.detach().cpu().item())
+                    self.phase_err.append(phase_error.detach().cpu().numpy().item())
+
+                    plot_err_mean.append(torch.mean(torch.abs(err)).detach().cpu().numpy().item())
+                    plot_loss_overlap_complex.append(loss_complexoverlap.detach().cpu().numpy().item())
+                    plot_eff_minus1.append((1-Efficiency_beam_intensity).detach().cpu().numpy().item())
+
 
                 print(f'Epoch {epoch + 1}/{epochs}, Loss: {loss.item():.6f}, Efficiency: {efficiency.item():.6f}')
                 print('loss', loss.item(), 'amps_error', torch.mean(torch.abs(err)).item(), 'phase_error',
                       torch.mean(torch.abs(err_phase)).item())
+                print('loss contributors',loss_complexoverlap.item(),(1-Efficiency_beam_intensity.item()),torch.mean(torch.abs(err)).item())
+                print('loss contri scaled', 0.1*loss_complexoverlap.item(), (1 - Efficiency_beam_intensity.item())*0.02,
+                      torch.mean(torch.abs(err)).item()*2.0)
                 loss_track.append(loss.item())
 
                 print("amps_current", amps_current)
@@ -2472,6 +2592,19 @@ class Wu(IFTA):
             amps_current_std = torch.std(amps_current)
 
             print("non-uniformity:",amps_current_std / amps_current_avg,"std deviation:",amps_current_std)
+            runsettings.amps_current_std=float(amps_current_std.detach().cpu().numpy())
+
+            # fig, ax1 = plt.subplots(figsize=(10, 6))
+            # ax1.plot(plot_loss_overlap_complex, color='tab:blue', label='Loss')
+            # ax1.set_ylabel('Loss', color='tab:blue')
+            # ax2=ax1.twinx()
+            # ax2.plot(plot_eff_minus1, color='tab:red', label='Efficiency')
+            # ax1.set_ylabel('Loss', color='tab:blue')
+            # ax3 = ax1.twinx()
+            # ax3.spines['right'].set_position(('outward', 60))
+            # ax3.plot(plot_err_mean, color='tab:green', label='Non-Uniformity')
+            # ax3.set_ylabel('Non-Uniformity', color='tab:green')
+            # plt.show()
 
 
     def iterate_Gradient_staged_optimisation(self, N, wuamps0, wuphases0, target_phase_curve):
@@ -2486,7 +2619,7 @@ class Wu(IFTA):
         with torch.no_grad():
             vars_to_convert = [
                 'image_field', 'A_t', 'S', 'I', 'P_t', 'mask',
-                'ones_box', 'input', 'A_t_orig', 'P_t_orig', 'P_c_old', 'ion_mask'
+                'ones_box', 'input', 'A_t_orig', 'P_t_orig', 'P_c_old', 'ion_mask','ion_mask_small'
             ]
             for var in vars_to_convert:
                 val = getattr(self, var, None)
@@ -2571,7 +2704,7 @@ class Wu(IFTA):
                         self.image_field = U_out / torch.sqrt(torch.sum(torch.abs(U_out) ** 2) + 1e-12)
                         efficiency = torch.sum(torch.abs(U_out) ** 2 * mask) / (
                                     torch.sum(torch.abs(U_out) ** 2) + 1e-12)
-                        self.eff.append(efficiency.detach().cpu().numpy())
+                        self.eff.append(efficiency.detach().cpu().item())
                         self.nonunif.append(amp_error.item())
                     print(
                         f"Stage: {stage['name']}, Epoch {epoch + 1}/{stage['epochs']}, Loss: {loss.item():.6f}, Efficiency: {efficiency.item():.6f}")
@@ -3590,7 +3723,7 @@ class OuterLoop:
         wu = Wu(input=self.input_profile, target=target, size=self.size,
                 target_beams=cp.array([cp.abs(beams0)[i] * cp.exp(cp.angle(beams0)[i]) for i in range(len(beams0))]),
                 start_phase=self.start_phase, phase_memory=self.phase_memory, phaseconstant=False, P_c_old=P_c_old,
-                target_orig=target_orig)#,target_New=target_New)
+                target_orig=target_orig,tem01=self.tem01)#,target_New=target_New)
 
         if True:
             wu.A_t=torch.as_tensor(wu.A_t)
@@ -3607,13 +3740,19 @@ class OuterLoop:
         # plt.title("input")
         # plt.show()
 
-        method_algorithm="grad"
+
+        method_algorithm=runsettings.method
         if method_algorithm=="wu": #Wu
             print("Method: ", method_algorithm)
             for m in range(M):
                 print("M_step_outer ",m)
                 wu.outer_num=m
                 wu.iterate_updatedloopWu(N)
+                # runsettings.exp_amp_global_wu=(runsettings.exp_amp_global_wu)**1
+                # if m<100:
+                #     runsettings.exp_phase_global_wu = (runsettings.exp_phase_global_wu)**1
+                # else:
+                #     runsettings.exp_phase_global_wu=0.0
 
                 if True: #Compare these metric to the ones below
                     amps_current = wu.beams(waist=0.0015)
@@ -3624,7 +3763,8 @@ class OuterLoop:
                     err = cp.abs(amps_current) - self.amps0  # amplitude error for each beam
                     err_phase = (phase_current) - self.phases0 - cp.array(
                         target_phase_curve)  # phase error for each beam
-                    print('amps_error', np.mean(np.abs(err)), 'phase_error', np.mean(np.abs(err_phase)))
+                    print('amps_error', np.mean(np.abs(err)), 'phase_error', np.mean(np.abs(err_phase)), 'amps_current_std', cp.std(amps_current), 'phase_current_std', cp.std(phase_current))
+
                 print("wueff:", wu.eff, "| nonunif:", wu.nonunif, "| phase_err:", wu.phase_err, "| image_field:",
                       wu.image_field, "| totalsteperr:", wu.totalsteperr)
                 self.wuseff.append(wu.eff)
@@ -3632,6 +3772,7 @@ class OuterLoop:
                 self.wusphase_err.append(wu.phase_err)
                 self.wusImageField.append(wu.image_field)
                 self.wusfidelity_err.append(wu.totalsteperr)
+            runsettings.amps_current_std=cp.std(amps_current)
 
         if method_algorithm=="grad": #Gradient
             print("Method: ", method_algorithm)
@@ -3921,6 +4062,9 @@ class OuterLoop:
                                                                                                   Final_ion_fidelity))
         global_variables.final_eff_curvature.append(Final_efficiency.get())
         global_variables.final_ion_fidelity_curvature.append(Final_ion_fidelity)
+        runsettings.Final_box_fidelity = Final_fidelity
+        runsettings.Final_efficiency = Final_efficiency
+        runsettings.Final_ion_fidelity = Final_ion_fidelity
         self.min_it=len(self.wusImageField)-1
         return wu.slm_field#self.wusField[self.min_it]  # self.wus[self.min_it].slm_field #Original with wus as the whole object
 
@@ -3951,8 +4095,13 @@ class OuterLoop:
         #
         # plotter.plot([n for n in range(len(self.wusfidelity_err[self.min_it]))], cp.array(self.wusphase_err[self.min_it]).get(),
         #          label='phase error')
-
-        plotter.plot([n for n in range(len(self.wuseff[self.min_it]))], cp.array(self.wuseff[self.min_it]).get(), label='Efficiency')
+        print("type(self.wusnonunif[self.min_it])",type(self.wusnonunif[self.min_it]))
+        #print("type(self.wusnonunif[self.min_it][0])", type(self.wusnonunif[self.min_it][0]))
+        #plotter.plot([n for n in range(len(self.wuseff[self.min_it]))], cp.array(self.wuseff[self.min_it]).get(), label='Efficiency')
+        plotter.plot([n for n in range(len(self.wuseff[self.min_it]))], np.array(self.wuseff[self.min_it]),
+                     label='Efficiency')
+        plotter.plot([n for n in range(len(self.wusnonunif[self.min_it]))], cp.array(self.wusnonunif[self.min_it]).get(),
+                     label='Nonuniformity')
 
 
         plotter.plot([n for n in range(len(self.wusfidelity_err[self.min_it]))], cp.array(self.wusfidelity_err[self.min_it]).get(),
