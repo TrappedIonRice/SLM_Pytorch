@@ -121,7 +121,7 @@ def temnm_Offcenter2Darb(slm, n=1, m=0, amp=1, w=(0.03, 0.1), x0=0.5, y0=0.5, an
     #field[y_start:y_end, x_start:x_end] = amp * hx * gx * hy * gy #Original 20/01/2026
     #field[y_start:y_end, x_start:x_end] = amp * ((I_rot - x0) / (2 * w_norm[0])) * cp.exp(-((I_rot - x0) ** 2 / (2 * w_norm[0] ** 2) + (J_rot - y0) ** 2 / (2 * w_norm[1] ** 2)))
     if m==1:  ##ORIGINAL
-        field[y_start:y_end, x_start:x_end] = amp * (2*(I_rot - x0) / ( w_norm[0])) * cp.exp(-((I_rot - x0) ** 2 / ( 2*w_norm[0] ** 2) + (J_rot - y0) ** 2 / ( 2*w_norm[1] ** 2)))
+        field[y_start:y_end, x_start:x_end] = amp * (2*(I_rot - x0) / ( w_norm[0])) * cp.exp(-((I_rot - x0) ** 2 / ( 4*w_norm[0] ** 2) + (J_rot - y0) ** 2 / ( 4*w_norm[1] ** 2)))
     if m==0:
         field[y_start:y_end, x_start:x_end] = amp * cp.exp(-((I_rot - x0) ** 2 / (2*w_norm[0] ** 2) + (J_rot - y0) ** 2 / (2*w_norm[1] ** 2)))
         print("gaussian here")
@@ -1138,7 +1138,7 @@ class Profile:
                 # print(len(transform[0]) / 2)
                 double_spots = []
                 separation = int(np.where(transform == np.max(transform))[1][0] - len(transform[0]) / 2)  # MDS added +1
-                separation = 2*1272*(2/(2*pi*0.55*1024*0.5))
+                separation = 2*1272*(2/(2*pi*0.55*1024*0.5))*runsettings.waist_scale
                 print(separation)
                 if False: #Original: For TEM01 defining double positions for each lobe
                     for spot in spots:

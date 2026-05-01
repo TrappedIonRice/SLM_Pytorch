@@ -54,6 +54,7 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     global Timestampstart
 
     global waist_scale
+    global scalepad_global
 
     Timestampstart = datetime.datetime.now()
 
@@ -101,7 +102,7 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     #phases=tuple(float(x) for x in np.random.rand(5)) #(np.random.rand(1)[0],np.random.rand(1)[0],np.random.rand(1)[0],np.random.rand(1)[0],np.random.rand(1)[0])
     phases=(0.0,0.0,0.0,0.0,0.0)
     curvature=0.75
-    start_phase_curve=0.001
+    start_phase_curve=0.5#0.001 for quadratic curve
     #phases=(0.585,0.974,0.576,0.153,0.974)
     if task_id==0:
         phases=(0.0,0.0,0.0,0.0,0.0)
@@ -122,10 +123,11 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
 
 
     learning_rate=0.008
-    efficiency_limit=1*serialcounter1
-    efficiency_limit_scale =1 * serialcounter2
+    efficiency_limit=1#*serialcounter1
+    efficiency_limit_scale =4# * serialcounter2
 
-    waist_scale=0.55/0.45#1
+    waist_scale=0.55/serialcounter5 #(0.62)#0.62#1#0.55/0.45#1
+    scalepad_global=2
 
     final_measures_dst = os.path.join(os.getcwd(), "sim_output",str(slurm_id))
     if not os.path.exists(final_measures_dst+'/'+'final_measures_grad_pattern_'+str(pattern_num)+'.txt'):
