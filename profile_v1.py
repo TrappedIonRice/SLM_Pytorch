@@ -468,10 +468,12 @@ class Profile:
                     for j in np.linspace(-0.5 * m * y_pitch + center[1], 0.5 * m * y_pitch + center[1], m, endpoint=True):
                         # x = (i + 0.5) * size[0]
                         amp_profile[int((i + 0.5) * size[0]), int((j + 0.5) * size[1])] = 1.0
-                        spots = np.append(spots, [[int((i + 0.5) * size[0]), int((j + 0.5) * size[1])]], axis=0)
+                        #spots = np.append(spots, [[int((i + 0.5) * size[0]), int((j + 0.5) * size[1])]], axis=0) #Integer spots
+                        spots = np.append(spots, [[(i + 0.5) * size[0], (j + 0.5) * size[1]]], axis=0)
                 else:
                     amp_profile[int((i + 0.5) * size[0]), int(0.5 * size[1])] = 1.0
-                    spots = np.append(spots, [[int((i + 0.5) * size[0]), int(0.5 * size[1])]], axis=0)
+                    #spots = np.append(spots, [[int((i + 0.5) * size[0]), int(0.5 * size[1])]], axis=0) #Integer spots
+                    spots = np.append(spots, [[(i + 0.5) * size[0], 0.5 * size[1]]], axis=0)
             anglearblist = np.linspace(90,90,np.shape(spots[1:])[0])
             #anglearblist=np.array([90,-90,90,-90,90])
         print("spots", spots)
@@ -1138,8 +1140,8 @@ class Profile:
                 # print(len(transform[0]) / 2)
                 double_spots = []
                 separation = int(np.where(transform == np.max(transform))[1][0] - len(transform[0]) / 2)  # MDS added +1
-                separation = 2*1272*(2/(2*pi*0.55*1024*0.5))*runsettings.waist_scale
-                print(separation)
+                separation = np.sqrt(2)*(2/(2*pi*0.55*1024*0.5))*runsettings.waist_scale*runsettings.scalepad_global*1272
+                print("separation",separation)
                 if False: #Original: For TEM01 defining double positions for each lobe
                     for spot in spots:
                         double_spots.append([spot[0], spot[1] - separation])
@@ -1152,8 +1154,8 @@ class Profile:
                         sin_angle = cp.sin(angle_rad)
                         # double_spots.append([spots[k][0]+cos_angle*3-1, spots[k][1] - sin_angle*3-1]) #-1 added   #old_fixed separation
                         # double_spots.append([spots[k][0]-cos_angle*3, spots[k][1] + sin_angle*3])
-                        double_spots.append([spots[k][0]+cos_angle*separation, spots[k][1] - sin_angle*separation]) #new
-                        double_spots.append([spots[k][0]-cos_angle*separation, spots[k][1] + sin_angle*separation])
+                        double_spots.append([spots[k][0]+cos_angle*separation*1024.0/1272.0, spots[k][1] - sin_angle*separation]) #new
+                        double_spots.append([spots[k][0]-cos_angle*separation*1024.0/1272.0, spots[k][1] + sin_angle*separation])
                     spots = double_spots
                     print("spots after double amp",spots)
             # plt.figure(figsize=(8, 6))

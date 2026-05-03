@@ -135,7 +135,6 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
 
     plot_images_global=True
 
-
     print(f"[Init] Taskid: {task_id}")
     print(f"[Init] SLURM Job ID: {slurm_id}")
     print(f"[Init] Output path: {output_path}")

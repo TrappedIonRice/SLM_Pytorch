@@ -2297,7 +2297,7 @@ class Wu(IFTA):
 
 
 
-    def iterate_Gradient(self, N, wuamps0,wuphases0,target_phase_curve):
+    def iterate_Gradient(self, N, wuamps0,wuphases0,target_phase_curve,phase_tem_compensation):
         self.stepnum = 0
         #self.totalsteperr = []
         loss_track=[]
@@ -2356,6 +2356,38 @@ class Wu(IFTA):
         print("self.spots",type(self.spots),self.spots)
         # Use cp.atleast_1d to ensure they aren't "unsized" 0-rank objects
         spots_tensor = torch.stack([torch.as_tensor(cp.atleast_1d(a), device=self.device) for a in self.spots])
+
+        grid_coords = spots_tensor.clone().detach().float()
+        grid_coords[:, 0] = (grid_coords[:, 0] / (self.size[0] - 1)) * 2 - 1
+        grid_coords[:, 1] = (grid_coords[:, 1] / (self.size[1] - 1)) * 2 - 1
+        grid_coords = grid_coords.unsqueeze(0).unsqueeze(0).flip(-1).float().to(self.device)
+
+        # To verify precision, print with higher decimal limit:
+        torch.set_printoptions(precision=10)
+        print("High-res grid_coords:", grid_coords)
+        print("spots_tensor",spots_tensor)
+
+        phase_tem_compensation_tensor=torch.as_tensor(cp.angle(cp.array(
+            phase_tem_compensation)), device=self.device)
+
+        A_target_amp_maxnorm=torch.abs(A_target_amp)/torch.max(torch.abs(A_target_amp))
+        amps_target_orig_sampled = torch.nn.functional.grid_sample(
+            A_target_amp_maxnorm.unsqueeze(0).unsqueeze(0),
+            grid_coords,
+            mode='bilinear',
+            padding_mode='zeros',
+            align_corners=True
+        ).reshape(-1)
+        print("amps_target_orig_sampled",amps_target_orig_sampled)
+
+        phase_target_orig_sampled = torch.nn.functional.grid_sample(
+            (P_target_phase.float()-phase_tem_compensation_tensor.float()).unsqueeze(0).unsqueeze(0).float(),
+            grid_coords,
+            mode='bilinear',
+            padding_mode='zeros',
+            align_corners=True
+        ).reshape(-1)
+        print("phase_target_orig_sampled", phase_target_orig_sampled)
 
         for epoch in range(epochs):
             # if epoch>500:
@@ -2465,6 +2497,34 @@ class Wu(IFTA):
             # #     target_phase_curve),device=self.device)  # phase error for each beam
             #
 
+            amps_sampled = torch.nn.functional.grid_sample(
+                A_out.unsqueeze(0).unsqueeze(0),
+                grid_coords,
+                mode='bilinear',
+                padding_mode='zeros',
+                align_corners=True
+            ).reshape(-1)
+            #print("amps_sampled",amps_sampled)
+            phase_sampled = torch.nn.functional.grid_sample(
+                (P_out.float()-phase_tem_compensation_tensor.float()).unsqueeze(0).unsqueeze(0),
+                grid_coords,
+                mode='bilinear',
+                padding_mode='zeros',
+                align_corners=True
+            ).reshape(-1)
+            #print("phase_sampled", phase_sampled)
+
+            # 3. Stable Normalization
+            # Max is jumpy; use the mean or total energy to scale
+            amps_current_norm = amps_sampled / (amps_sampled.mean() + 1e-12)
+            amps_target_norm = amps_target_orig_sampled / (amps_target_orig_sampled.mean() + 1e-12)
+
+            # 4. Compatible Error/Loss
+            # 'err' as a vector is fine, but backprop needs a scalar loss
+            loss_spots = torch.mean((amps_current_norm - amps_target_norm) ** 2)
+            loss_spots_phase=torch.mean(1 - torch.cos(phase_sampled - phase_target_orig_sampled))
+            #print("(amps_current_norm - amps_target_norm) ** 2",(amps_current_norm - amps_target_norm) ** 2)
+
 
             # Fidelity_loss = ((torch.abs(
             #     torch.sum(torch.conj(self.image_field) * (torch.asarray(A_target_amp*torch.exp(1j*P_target_phase))) * torch.asarray(self.ones_box))) ** 2 / (
@@ -2481,7 +2541,7 @@ class Wu(IFTA):
 
 
             #MAIN LOSS FUNCTION. Uncomment the rest of the loss components to give weightage to other metrics
-            loss=((loss_complexoverlap))#(target_loss/0.05)*torch.mean(torch.abs(err)**2)##+(target_loss/0.05)*torch.mean(torch.abs(err)))#+*torch.std(torch.abs(amps_current)))#+5*torch.mean(torch.abs(err)))#+runsettings.efficiency_limit_scale*4*(torch.max(torch.tensor(0.0),runsettings.efficiency_limit-Efficiency_beam_intensity)))
+            #loss=((loss_complexoverlap))#(target_loss/0.05)*torch.mean(torch.abs(err)**2)##+(target_loss/0.05)*torch.mean(torch.abs(err)))#+*torch.std(torch.abs(amps_current)))#+5*torch.mean(torch.abs(err)))#+runsettings.efficiency_limit_scale*4*(torch.max(torch.tensor(0.0),runsettings.efficiency_limit-Efficiency_beam_intensity)))
                   #+5*(loss_complexoverlap_small)+5*torch.mean(torch.abs(err))*runsettings.efficiency_limit_scale+runsettings.efficiency_limit_scale*4*(torch.max(torch.tensor(0.0),runsettings.efficiency_limit-Efficiency_beam_intensity)))#+torch.mean(torch.abs(err))
             #loss=10*torch.mean(torch.abs(err))+torch.max(torch.tensor(0.0),loss_complexoverlap-0.05)
             # if np.mod(int(epoch/100), 2) == 0:
@@ -2490,10 +2550,10 @@ class Wu(IFTA):
             #     loss=(1-Efficiency_beam_intensity)*0.2#2*torch.mean(torch.abs(err))
             # alpha_l = epoch / epochs
             # loss = (1 - alpha_l) * loss_complexoverlap + (alpha_l) * torch.mean(torch.abs(err)) * (target_loss/0.005)# + alpha_l*(torch.max(torch.tensor(0.0),0.48-Efficiency_beam_intensity))
-            # if epoch<200:
-            #     loss = loss_complexoverlap#(1-alpha_l) * loss_complexoverlap + (alpha_l) * (1-Efficiency_beam_intensity)*1
-            # else:
-            #     loss=20*(target_loss/0.005)*torch.mean(torch.abs(err)**2)#loss_complexoverlap+torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1
+            if epoch<0:
+                loss = loss_complexoverlap#(1-alpha_l) * loss_complexoverlap + (alpha_l) * (1-Efficiency_beam_intensity)*1
+            else:
+                loss=loss_complexoverlap#+(target_loss/0.0005)*loss_spots#+10*loss_spots_phase#20*(target_loss/0.005)*torch.mean(torch.abs(err))#loss_complexoverlap+torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1
             #loss= loss_complexoverlap*((1-Efficiency_beam_intensity))**50
 
             if False:  # best loss
@@ -2507,7 +2567,7 @@ class Wu(IFTA):
             loss.backward()
             optimizer.step()
             # phi_slm = torch.clamp(phi_slm, min=-2 * torch.pi, max=2 * torch.pi)
-            if (epoch + 1) % 200 == 0:
+            if (epoch + 1) % 50 == 0:
 
                 with torch.no_grad():
                     self.totalsteperr.append((torch.abs(
@@ -2567,12 +2627,13 @@ class Wu(IFTA):
                 print(f'Epoch {epoch + 1}/{epochs}, Loss: {loss.item():.6f}, Efficiency: {efficiency.item():.6f}')
                 print('loss', loss.item(), 'amps_error', torch.mean(torch.abs(err)).item(), 'phase_error',
                       torch.mean(torch.abs(err_phase)).item())
-                print('loss contributors',loss_complexoverlap.item(),(1-Efficiency_beam_intensity.item()),torch.mean(torch.abs(err)).item())
+                print('loss contributors',loss_complexoverlap.item(),(1-Efficiency_beam_intensity.item()),torch.mean(torch.abs(err)).item(),"loss spots",loss_spots.item(),"loss_spots_phase",loss_spots_phase.item())
                 print('loss contri scaled', 0.1*loss_complexoverlap.item(), (1 - Efficiency_beam_intensity.item())*0.02,
                       torch.mean(torch.abs(err)).item()*2.0)
                 loss_track.append(loss.item())
 
                 print("amps_current", amps_current)
+                print("amps_sampled", amps_sampled)
 
                 #print(f'Epoch {epoch + 1}/{epochs}, Loss: {loss.item():.6f}' + " fidelity:", fidelity_track[-1],
                 #      " eff:", efficiency_track[-1])
@@ -3813,7 +3874,7 @@ class OuterLoop:
 
         if method_algorithm=="grad": #Gradient
             print("Method: ", method_algorithm)
-            wu.iterate_Gradient(N,self.amps0,self.phases0,target_phase_curve)
+            wu.iterate_Gradient(N,self.amps0,self.phases0,target_phase_curve,self.phase_tem_compensation)
             self.wusImageField.append(wu.image_field)
             self.wuseff.append(wu.eff)
             self.wusnonunif.append(wu.nonunif)

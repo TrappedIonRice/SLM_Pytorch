@@ -1,6 +1,29 @@
+import sys
+import sys
+
+# 1. Define the Tee logic
+class Tee:
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.file = open(filename, "w")
+    def write(self, message):
+        self.terminal.write(message)
+        self.file.write(message)
+    def flush(self):
+        self.terminal.flush()
+        self.file.flush()
+
+# 2. Redirect BEFORE importing other files
+sys.stdout = Tee("all_output.txt")
+
 import runsettings
 import ArrayModulator_v1
 import numpy as np
+
+
+
+
+
 
 for serialcounter1 in np.arange(0.4,0.6,100 ):
     for serialcounter2 in np.arange(45,50,5):
