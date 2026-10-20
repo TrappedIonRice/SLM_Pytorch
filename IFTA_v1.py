@@ -72,9 +72,53 @@ def gauss_intensity_linefit(x, A, wx, x0, O):
     return g
 
 
+def make_ion_mask_cp_smooth(shape, spots, radius, edge_width=2.0):
+    """
+    Creates a continuous ion mask with smooth edges on GPU using CuPy.
 
-import cupy as cp
+    Parameters:
+        shape (tuple): (ny, nx) dimensions of the spatial grid.
+        spots (array-like): List of spot coordinates (y, x).
+        radius (float): Nominal radius of each ion spot in pixels.
+        edge_width (float): Total width of the smooth transition zone in pixels.
 
+    Returns:
+        cp.ndarray: 2D float32 array in [0, 1] with smoothed spot edges.
+    """
+    ny, nx = shape  # (rows, cols)
+
+    spots = cp.asarray(spots, dtype=cp.float32)
+    spots = spots[:, ::-1]  # convert (y, x) -> (x, y)
+
+    # Initialize continuous float mask
+    ion_mask = cp.zeros((ny, nx), dtype=cp.float32)
+
+    x = cp.arange(nx, dtype=cp.float32)
+    y = cp.arange(ny, dtype=cp.float32)
+
+    # Inner and outer radii for the transition zone
+    r_inner = radius - edge_width / 2.0
+    r_outer = radius + edge_width / 2.0
+
+    for x_spot, y_spot in spots:
+        dx2 = (x - x_spot) ** 2  # shape (nx,)
+        dy2 = (y - y_spot) ** 2  # shape (ny,)
+
+        # Distance from current spot center
+        dist = cp.sqrt(dy2[:, None] + dx2[None, :])
+
+        # Cosine taper: 1.0 inside r_inner, 0.0 outside r_outer, smooth in between
+        t = cp.clip((r_outer - dist) / edge_width, 0.0, 1.0)
+        spot_mask = 0.5 * (1.0 - cp.cos(t * cp.pi))
+
+        # Combine overlapping spots taking spatial maximum
+        ion_mask = cp.maximum(ion_mask, spot_mask)
+
+    # plt.imshow(np.abs(ion_mask.get()))
+    # plt.title("ion_mask smooth")
+    # plt.show()
+
+    return ion_mask
 
 
 def make_ion_mask_cp(shape, spots, radius):
@@ -110,7 +154,7 @@ def make_ion_mask_cp(shape, spots, radius):
     # # Broadcasting: (ny, 1) + (1, nx) -> (ny, nx)
     # ion_mask |= (dy2[:, None] + dx2[None, :] <= r2)
     # plt.imshow(np.abs(ion_mask.get()))
-    # plt.title("ion_mask")
+    # plt.title("ion_mask_inside_func")
     # plt.show()
     return ion_mask
 
@@ -884,23 +928,23 @@ class Wu(IFTA):
             #start_phase = 2 * pi * cp.random.random_sample(size)
                 start_phase = 2 * pi * cp.random.normal(0,0.2,size)
             else:
-                start_phase = 2 * pi * cp.random.normal(0, 0.1, size)
-                phase_path_tem01 = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01_nocorr.txt'
-                #phase_path_tem01 = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01_scalepad4_withcorr.txt'
-                phase_mask_tem01 = pad_border(np.loadtxt(phase_path_tem01),size)
-                phase_mask_tem01=cp.flip(phase_mask_tem01, axis=1)
-                #phase_mask_tem01[:, phase_mask_tem01.shape[1] // 2 :]=0
-                #phase_mask_tem01[:, :phase_mask_tem01.shape[1] // 2] =np.pi
-                phase_path_5arb_063 = r'C:\Users\RiceT\Documents\SLM_computation\images\tem00_arb5_063.txt'
-                phase_mask_5arb_063 = pad_border(np.loadtxt(phase_path_5arb_063), size)
-                start_phase = cp.angle(cp.fft.ifftshift(cp.fft.ifft2(cp.fft.ifftshift(self.target), norm="ortho")))#+cp.asarray(phase_mask_tem01)
-                #start_phase =cp.asarray(phase_mask_tem01)#cp.asarray(phase_mask_5arb_063)+
-                #start_phase[:,int(len(start_phase[0])*0.5)-40:int(len(start_phase[0])*0.5)+40]=2 * pi * cp.random.random_sample(start_phase[:,int(len(start_phase[0])*0.5)-40:int(len(start_phase[0])*0.5)+40].shape)
-                phase_path_47_Tcurve = r'C:\Users\RiceT\Documents\SLM_computation\images\Tcurve_47ions.txt'
-                start_phase = cp.asarray(pad_border(np.loadtxt(phase_path_47_Tcurve), size))
-                phaseTest11101beams=r'C:\Users\RiceT\Documents\SLM_computation\images\phaseTest47beams_every3nulled.txt'
-                                     # phaseTest11101beams.txt
-                start_phase = cp.asarray(pad_border(np.loadtxt(phaseTest11101beams), size))
+                # start_phase = 2 * pi * cp.random.normal(0, 0.1, size)
+                # phase_path_tem01 = runsettings.directory_SLM_computation + r'\images\tem01_nocorr.txt'
+                # #phase_path_tem01 = runsettings.directory_SLM_computation + r'\images\tem01_scalepad4_withcorr.txt'
+                # phase_mask_tem01 = pad_border(np.loadtxt(phase_path_tem01),size)
+                # phase_mask_tem01=cp.flip(phase_mask_tem01, axis=1)
+                # #phase_mask_tem01[:, phase_mask_tem01.shape[1] // 2 :]=0
+                # #phase_mask_tem01[:, :phase_mask_tem01.shape[1] // 2] =np.pi
+                # phase_path_5arb_063 = runsettings.directory_SLM_computation + r'\images\tem00_arb5_063.txt'
+                # phase_mask_5arb_063 = pad_border(np.loadtxt(phase_path_5arb_063), size)
+                # start_phase = cp.angle(cp.fft.ifftshift(cp.fft.ifft2(cp.fft.ifftshift(self.target), norm="ortho")))#+cp.asarray(phase_mask_tem01)
+                # #start_phase =cp.asarray(phase_mask_tem01)#cp.asarray(phase_mask_5arb_063)+
+                # #start_phase[:,int(len(start_phase[0])*0.5)-40:int(len(start_phase[0])*0.5)+40]=2 * pi * cp.random.random_sample(start_phase[:,int(len(start_phase[0])*0.5)-40:int(len(start_phase[0])*0.5)+40].shape)
+                # phase_path_47_Tcurve = runsettings.directory_SLM_computation + r'\images\Tcurve_47ions.txt'
+                # start_phase = cp.asarray(pad_border(np.loadtxt(phase_path_47_Tcurve), size))
+                # phaseTest11101beams=runsettings.directory_SLM_computation + r'\images\phaseTest47beams_every3nulled.txt'
+                #                      # phaseTest11101beams.txt
+                # start_phase = cp.asarray(pad_border(np.loadtxt(phaseTest11101beams), size))
                 start_phase = 2 * pi * cp.random.normal(0, 0.1, size)
                 if False:
                     print("size",size)
@@ -913,9 +957,9 @@ class Wu(IFTA):
                     plt.show()
             Target_orig_fft=cp.fft.ifftshift(cp.fft.ifft2(cp.fft.ifftshift(cp.asarray(target_orig[0])), norm="ortho"))
             #Target_orig_fft=Target_orig_fft/cp.max(Target_orig_fft)
-            estimated_slm_phase=cp.angle(Target_orig_fft)+2 * pi * cp.random.normal(0,0.1*(1-cp.abs(Target_orig_fft/cp.max(cp.abs(Target_orig_fft)))),self.size)
+            estimated_slm_phase=cp.angle(Target_orig_fft)#+2 * pi * cp.random.normal(0,0.1*(1-cp.abs(Target_orig_fft/cp.max(cp.abs(Target_orig_fft)))),self.size)
             start_phase=estimated_slm_phase
-            #start_phase= 2 * pi * cp.random.normal(0, 0.1, size)
+            start_phase= estimated_slm_phase+ 2 * pi * cp.random.normal(0, 0.0001, size)
             # plt.imshow(np.angle(Target_orig_fft.get()))
             # plt.figure()
             # plt.imshow(np.abs(Target_orig_fft.get()))
@@ -923,12 +967,18 @@ class Wu(IFTA):
             # plt.imshow((start_phase.get()))
             # plt.show()
 
+        self.first_round=True
+
+        if not self.first_round: #Preloading from a  file
+            start_phase=cp.array(pad_border(np.load(runsettings.directory_SLM_computation + r'\images\wu_1x4_full.npy'),size))
+            start_phase=start_phase+2 * pi * cp.random.normal(0, 0.01, size)
+
         if False: #For simple curved phase
 
             local_y = cp.arange(size[0]) - (size[0] / 2.0) + 0.5
             local_x = cp.arange(size[1]) - (size[1] / 2.0) + 0.5
 
-            start_phase = runsettings.start_phase_curve * (local_y[:, None] ** 2 + local_x[None, :] ** 2) #0.00002
+            start_phase = runsettings.start_phase_curve * (local_y[:, None] ** 2 + local_x[None, :] **2) #0.00002
             start_phase = cp.asarray(start_phase)
             # #curved start phase:
             # for i in range(size[0]):
@@ -944,7 +994,7 @@ class Wu(IFTA):
             #axicon_phase = runsettings.start_phase_curve * cp.sqrt((local_y[:, None] ** 2 + local_x[None, :] ** 2))
             #Using a tilt
             axicon_phase = runsettings.start_phase_curve * ((local_y[:, None] + local_x[None, :]))
-            random_factor = 0.3*cp.random.random(self.size)
+            random_factor = 0.1*cp.random.random(self.size)
             use_axicon = random_factor > ( normalised_slm_fft_magnitude)
             use_estimated = ~use_axicon
             start_phase[use_axicon] = axicon_phase[use_axicon]
@@ -956,6 +1006,8 @@ class Wu(IFTA):
             normalised_slm_fft_magnitude = cp.abs(Target_orig_fft / cp.max(cp.abs(Target_orig_fft)))
             tilt_phase = runsettings.start_phase_curve * ((local_y[:, None] + local_x[None, :]))
             start_phase = normalised_slm_fft_magnitude* cp.mod((slm_fft_angle + tilt_phase),2*cp.pi) - tilt_phase
+
+        start_phase=self.generate_random_start_phase(Target_orig_fft, size, runsettings,self.first_round)
 
 
         start_phase = cp.asarray(start_phase)
@@ -1001,6 +1053,7 @@ class Wu(IFTA):
         self.P_c_old = cp.zeros(size)
         self.stepstartflag=0
         self.totalsteperr=[]
+        self.totalsteperr_ion = []
         self.stepnum=0
         self.outer_num=0
         self.phaseconstant=phaseconstant
@@ -1020,13 +1073,14 @@ class Wu(IFTA):
 
         self.ones_box = cp.zeros(size)
 
-        self.ones_box[int(size[0] / 2 - size[0] / 6):int(size[0] / 2 + size[0] / 6), int(size[1] / 2 - size[1] / 6):int(size[1] / 2 + size[1] / 6)] = 1
+        self.ones_box[int(size[0] / 2 - size[0] / 6):int(size[0] / 2 + size[0] / 6), int(size[1] / 2 - size[1] / 6):int(size[1] / 2 + size[1] / 6)] = 1 #original
+        self.ones_box[int(size[0] / 2 - size[0] / 5):int(size[0] / 2 + size[0] / 5), int(size[1] / 2 - size[1] / 5):int(size[1] / 2 + size[1] / 5)] = 1
         #self.ones_box = cp.ones(size)
-        if True: #Having a circular region of interest
+        if False: #Having a circular region of interest
             local_y = np.arange(size[0]) - (size[0] / 2.0) + 0.5
             local_x = np.arange(size[1]) - (size[1] / 2.0) + 0.5
 
-            self.ones_box = cp.asarray(((local_y[:, None] ** 2 + local_x[None, :] ** 2) < (80*runsettings.scalepad_global)**2).astype(int))
+            self.ones_box = cp.asarray(((local_y[:, None] ** 2 + local_x[None, :] ** 2) < (120*runsettings.scalepad_global)**2).astype(int))  #Was 80*runsettings before.Change here for ROI radius
             print("res_factor",res_factor)
         # plt.imshow(np.abs(self.ones_box.get()))
         # plt.show()
@@ -1053,13 +1107,16 @@ class Wu(IFTA):
         self.P_t = cp.angle(self.target)
 
         # Generate a mask with 0 everywhere except where the target pattern is, to divide the image into target and noise areas
-        self.mask = cp.where(cp.abs(self.target) > 1e-2, cp.ones(size), cp.zeros(size))
+        #self.mask = cp.where(cp.abs(self.target) > 1e-2, cp.ones(size), cp.zeros(size))
+        self.mask=make_ion_mask_cp(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),radius=10)
         # slm.ampToBMP(cp.abs(self.mask), name='mask', color=True, show=False)
         #plt.imshow(self.mask.get())
         #plt.show()
         #Get the spot positions and create a circle around it
         print(cp.multiply(cp.asarray(target_orig[1]),self.res_factor))
-        self.ion_mask = make_ion_mask_cp(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),radius=10)#50
+        self.ion_mask = make_ion_mask_cp(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),radius=45)#50 #100 for 33 by 33 data
+        self.ion_mask_smooth = make_ion_mask_cp_smooth(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),
+                                         radius=50,edge_width=4)  # 50
 
         if tem01==True:
             spots_temp=cp.multiply(cp.asarray(target_orig[1]), self.res_factor)
@@ -1080,6 +1137,7 @@ class Wu(IFTA):
             print("Limit Schatrz", cp.mean(cp.abs(Target_orig_fft))**2/cp.mean(cp.abs(Target_orig_fft)**2))
             # plt.imshow(cp.abs(Target_orig_fft).get())
             # plt.show()
+            print("Curvature: ",runsettings.curvature)
             estimated_slm_phase=cp.angle(Target_orig_fft)+2 * pi * cp.random.normal(0,0.05*(1-cp.abs(Target_orig_fft/cp.max(cp.abs(Target_orig_fft)))),self.size)
 
 
@@ -1121,37 +1179,47 @@ class Wu(IFTA):
             print("Maximum_possible_efficiency_complex", Maximum_possible_efficiency_complex, "square_complex",
                   Maximum_possible_efficiency_complex ** 2)
             print("Estimated_efficiency",Estimated_efficiency)#,"Estimated eff New target",Estimated_efficiency_new_target)
-        # plt.imshow(np.abs(Target_orig_fft.get()))
-        # plt.title("target_orig_fft")
-        # plt.figure()
-        # plt.imshow(np.abs(self.input.get()))
-        # plt.figure()
-        # plt.imshow(np.abs(self.input.get())-np.abs(Target_orig_fft.get()))
-        # plt.figure()
-        # plt.imshow(np.angle(np.exp(1j*estimated_slm_phase).get()))
-        # plt.title("estimated phase")
-        # plt.figure()
-        # plt.imshow(np.abs(cp.asarray(target_orig[0]).get()))
-        # plt.title("Actual Target image")
-        # plt.figure()
-        # # plt.imshow(np.abs(cp.asarray(target_New[0]).get()))
-        # # plt.title("New Target image")
-        # # plt.figure()
-        # plt.imshow(np.abs(Estimated_image.get()))
-        # plt.title("estimated image")
-        # plt.figure()
-        # plt.imshow(np.angle(cp.asarray(target_orig[0]).get()))
-        # plt.title("Actual Target image angle")
-        # plt.figure()
-        # plt.imshow(np.angle(Estimated_image.get()))
-        # plt.title("estimated image angle")
-        # plt.figure()
-        # plt.plot(np.angle(Estimated_image[1024,:].get()))
-        # plt.title("estimated image angle")
-        # plt.figure()
-        # plt.plot(np.abs(Estimated_image[1024,:].get()))
-        # plt.title("estimated image")
-        # plt.show()
+            runsettings.Maximum_possible_efficiency_complex=Maximum_possible_efficiency_complex
+
+        if False:
+            plt.imshow(np.abs(Target_orig_fft.get()))
+            plt.title("target_orig_fft")
+            plt.figure()
+            plt.imshow(np.abs(self.input.get()))
+            plt.figure()
+            plt.imshow(np.abs(self.input.get())-np.abs(Target_orig_fft.get()))
+            plt.figure()
+            plt.imshow(np.angle(np.exp(1j*estimated_slm_phase).get()))
+            plt.title("estimated phase")
+            plt.figure()
+            plt.imshow(np.abs(cp.asarray(target_orig[0]).get()))
+            plt.title("Actual Target image")
+            plt.figure()
+            # plt.imshow(np.abs(cp.asarray(target_New[0]).get()))
+            # plt.title("New Target image")
+            # plt.figure()
+            plt.imshow(np.abs(Estimated_image.get()))
+            plt.title("estimated image")
+            plt.figure()
+            plt.imshow(np.angle(cp.asarray(target_orig[0]).get()))
+            plt.title("Actual Target image angle")
+            plt.figure()
+            plt.imshow(np.angle(Estimated_image.get()))
+            plt.title("estimated image angle")
+            plt.figure()
+            plt.plot(np.angle(Estimated_image[1024,:].get()))
+            plt.title("estimated image angle")
+            plt.figure()
+            plt.plot(np.abs(Estimated_image[1024,:].get()))
+            plt.title("estimated image")
+            plt.show()
+
+        '''New func'''
+        I_t_final = (np.abs(target[0].get()) ** 2)
+        I_t_final = I_t_final / np.max(I_t_final)
+        np.save("simulation_target_intensity.npy", I_t_final)
+
+        '''End New func'''
 
         self.S=torch.as_tensor(self.S)
         self.I=torch.as_tensor(self.I)
@@ -1178,6 +1246,64 @@ class Wu(IFTA):
         #     self.phase_err.append(self.phase_error())
 
         self.phase_memory = phase_memory
+
+
+    def generate_random_start_phase(self,Target_orig_fft, size, runsettings, first_round=True):
+        """
+        Randomly selects a starting phase strategy and samples hyperparameters
+        (noise, curvature, tilts) to comprehensively span initial conditions.
+        """
+        # 1. Pre-calculate common coordinate grids and target arrays
+        local_y = cp.arange(size[0]) - (size[0] / 2.0) + 0.5
+        local_x = cp.arange(size[1]) - (size[1] / 2.0) + 0.5
+        Y, X = cp.meshgrid(local_y, local_x, indexing='ij')
+
+        slm_fft_angle = cp.angle(Target_orig_fft)
+        fft_mag = cp.abs(Target_orig_fft)
+        norm_fft_mag = fft_mag / cp.max(fft_mag)
+
+        # 2. Randomly pick an initialization strategy (0 to 4)
+        # Exclude file loading if it is the first round
+        strategy_pool = [0, 2, 3, 4] if first_round else [1]#[0, 1, 2, 3, 4]
+        chosen_strategy = int(np.random.choice(strategy_pool))
+
+        # 3. Dynamically randomize coefficients
+        rand_curve = float(np.random.uniform(0.1, 2.0)) * runsettings.start_phase_curve
+        rand_noise_scale = float(np.random.uniform(0.0001, 0.05))
+
+        # Default fallback phase
+        start_phase = cp.zeros(size)
+
+        # 4. Execute the chosen phase strategy
+        if chosen_strategy == 0:
+            # Estimated target phase + randomized Gaussian noise
+            start_phase = slm_fft_angle + 2 * cp.pi * cp.random.normal(0, rand_noise_scale, size)
+
+        elif chosen_strategy == 1:
+            # Preloaded phase from file
+            file_path = runsettings.directory_SLM_computation + r'\images\wu_1x4_full.npy'
+            loaded_phase = cp.array(pad_border(np.load(file_path), size))
+            start_phase = loaded_phase + 2 * cp.pi * cp.random.normal(0, rand_noise_scale, size)
+
+        elif chosen_strategy == 2:
+            # Randomized quadratic curved phase (Defocus)
+            start_phase = rand_curve * (Y ** 2 + X ** 2)
+
+        elif chosen_strategy == 3:
+            # Axicon / Linear Tilt mixture
+            tilt_phase = rand_curve * (Y + X)
+            random_factor = cp.random.random(size) * float(np.random.uniform(0.05, 0.2))
+            use_tilt = random_factor > norm_fft_mag
+
+            start_phase = cp.where(use_tilt, tilt_phase, slm_fft_angle)
+
+        elif chosen_strategy == 4:
+            # S1 Method from Clark
+            tilt_phase = rand_curve * (Y + X)
+            modulated = norm_fft_mag * cp.mod((slm_fft_angle + tilt_phase), 2 * cp.pi)
+            start_phase = modulated - tilt_phase
+
+        return start_phase
 
     # Execute a single iteration of the algorithm
     #Trying to implement adaptive GSW from https://opg.optica.org/oe/fulltext.cfm?uri=oe-29-2-1412
@@ -1743,7 +1869,7 @@ class Wu(IFTA):
                 # plt.imshow((self.A_t).abs().detach().cpu().numpy())
                 # plt.title("target")
                 # plt.show()
-                print("error {:.3f} eff {:.3f}".format(self.totalsteperr[-1],self.eff[-1]))
+                print("fidelity {:.3f} eff {:.3f}".format(self.totalsteperr[-1],self.eff[-1]))
 
 
     def step_fbchanging(self):
@@ -2147,7 +2273,8 @@ class Wu(IFTA):
             #                        alphaW * ratio_updateW + (1 - alphaW) * diff_updateW,
             #                        self.A_t_orig)
 
-            mag = torch.abs(image_field_mask)
+            #mag = torch.abs(image_field_mask)
+            mag = torch.abs(self.A_t_orig )
             eps = 1e-6
 
             # smooth blending (ratio ↔ difference)
@@ -2167,7 +2294,7 @@ class Wu(IFTA):
             orig_norm = torch.norm(self.A_t_orig)
             current_norm = torch.norm(A_new)
 
-            A_new *= (orig_norm / (current_norm + 1e-8)) ** 0.5
+            ##A_new *= (orig_norm / (current_norm + 1e-8)) #** 0.5
             self.A_t = A_new
 
 
@@ -2297,7 +2424,7 @@ class Wu(IFTA):
 
 
 
-    def iterate_Gradient(self, N, wuamps0,wuphases0,target_phase_curve):
+    def iterate_Gradient(self, N, wuamps0,wuphases0,target_phase_curve,phase_tem_compensation):
         self.stepnum = 0
         #self.totalsteperr = []
         loss_track=[]
@@ -2328,9 +2455,9 @@ class Wu(IFTA):
 
             # 2. --- ITERATIVE LOOP ---
         lr = runsettings.learning_rate # 5
-        epochs = 2000
+        epochs = 6000
         target_loss=0.1e-1#+ 5e-1#*0.005
-        patience=2000
+        patience=6000
         best_loss=float('inf')
         patience_counter=0
         phi_slm = torch.tensor(self.p,device=self.device, dtype=torch.float32,requires_grad=True )
@@ -2356,6 +2483,38 @@ class Wu(IFTA):
         print("self.spots",type(self.spots),self.spots)
         # Use cp.atleast_1d to ensure they aren't "unsized" 0-rank objects
         spots_tensor = torch.stack([torch.as_tensor(cp.atleast_1d(a), device=self.device) for a in self.spots])
+
+        grid_coords = spots_tensor.clone().detach().float()
+        grid_coords[:, 0] = (grid_coords[:, 0] / (self.size[0] - 1)) * 2 - 1
+        grid_coords[:, 1] = (grid_coords[:, 1] / (self.size[1] - 1)) * 2 - 1
+        grid_coords = grid_coords.unsqueeze(0).unsqueeze(0).flip(-1).float().to(self.device)
+
+        # To verify precision, print with higher decimal limit:
+        torch.set_printoptions(precision=10)
+        print("High-res grid_coords:", grid_coords)
+        print("spots_tensor",spots_tensor)
+
+        phase_tem_compensation_tensor=torch.as_tensor(cp.angle(cp.array(
+            phase_tem_compensation)), device=self.device)
+
+        A_target_amp_maxnorm=torch.abs(A_target_amp)/torch.max(torch.abs(A_target_amp))
+        amps_target_orig_sampled = torch.nn.functional.grid_sample(
+            A_target_amp_maxnorm.unsqueeze(0).unsqueeze(0),
+            grid_coords,
+            mode='bilinear',
+            padding_mode='zeros',
+            align_corners=True
+        ).reshape(-1)
+        print("amps_target_orig_sampled",amps_target_orig_sampled)
+
+        phase_target_orig_sampled = torch.nn.functional.grid_sample(
+            (P_target_phase.float()-phase_tem_compensation_tensor.float()).unsqueeze(0).unsqueeze(0).float(),
+            grid_coords,
+            mode='bilinear',
+            padding_mode='zeros',
+            align_corners=True
+        ).reshape(-1)
+        print("phase_target_orig_sampled", phase_target_orig_sampled)
 
         for epoch in range(epochs):
             # if epoch>500:
@@ -2397,8 +2556,11 @@ class Wu(IFTA):
             out_complex = A_out * torch.exp(1j * P_out)
             target_complex = A_target_amp * torch.exp(1j * P_target_phase)
 
-            out_complex = out_complex * self.ones_box # self.ion_mask#
-            target_complex = target_complex * self.ones_box #self.ion_mask#
+            # Replace line 2555 with this:
+            self.ion_mask_smooth = torch.as_tensor(self.ion_mask_smooth, device="cuda")
+
+            out_complex = out_complex * self.ion_mask_smooth# self.ones_box #
+            target_complex = target_complex *  self.ion_mask_smooth#self.ones_box #
 
             num = torch.sum(torch.conj(target_complex) * out_complex)
 
@@ -2465,6 +2627,259 @@ class Wu(IFTA):
             # #     target_phase_curve),device=self.device)  # phase error for each beam
             #
 
+            amps_sampled = torch.nn.functional.grid_sample(
+                A_out.unsqueeze(0).unsqueeze(0),
+                grid_coords,
+                mode='bilinear',
+                padding_mode='zeros',
+                align_corners=True
+            ).reshape(-1)
+            #print("amps_sampled",amps_sampled)
+            phase_sampled = torch.nn.functional.grid_sample(
+                (P_out.float()-phase_tem_compensation_tensor.float()).unsqueeze(0).unsqueeze(0),
+                grid_coords,
+                mode='bilinear',
+                padding_mode='zeros',
+                align_corners=True
+            ).reshape(-1)
+            #print("phase_sampled", phase_sampled)
+
+            # 3. Stable Normalization
+            # Max is jumpy; use the mean or total energy to scale
+            amps_current_norm = amps_sampled / (amps_sampled.mean() + 1e-12)
+            amps_target_norm = amps_target_orig_sampled / (amps_target_orig_sampled.mean() + 1e-12)
+
+            # 4. Compatible Error/Loss
+            # 'err' as a vector is fine, but backprop needs a scalar loss
+            loss_spots = torch.mean((amps_current_norm - amps_target_norm) ** 2)
+            loss_spots_phase=torch.mean(1 - torch.cos(phase_sampled - phase_target_orig_sampled))
+
+
+            # phase_difference_spots=(phase_sampled - phase_target_orig_sampled).remainder(2 * np.pi)
+            # spots_phase_std=scipy.stats.circstd((phase_difference_spots).detach().cpu().numpy(), low=0, high=2 * np.pi)
+            # phase_difference_spots_adjusted = torch.where(
+            #     phase_difference_spots < torch.pi,
+            #     phase_difference_spots,
+            #     phase_difference_spots - torch.pi)
+            # phase_difference_spots_minmax=torch.max(phase_difference_spots_adjusted)-torch.min(phase_difference_spots_adjusted)
+
+
+            #print("(amps_current_norm - amps_target_norm) ** 2",(amps_current_norm - amps_target_norm) ** 2)
+            #print("spots phase std",spots_phase_std)
+            #Added Agust 10 2026 for phase flatness locally:
+            # amp_weight_mask = (A_target_amp / (A_target_amp.max() + 1e-12))
+            # amp_weight_mask = torch.where(amp_weight_mask > 0.1, amp_weight_mask, torch.zeros_like(amp_weight_mask))
+
+            # Compute spatial phase gradients (handling phase wrapping using sine/cosine differences)
+            # Prepare inputs for grid_sample
+            # diff_sin = torch.sin(P_out.float() - phase_tem_compensation_tensor.float()).unsqueeze(0).unsqueeze(0)
+            # diff_cos = torch.cos(P_out.float() - phase_tem_compensation_tensor.float()).unsqueeze(0).unsqueeze(0)
+            # 
+            # # Sample both continuous components
+            # sampled_sin = torch.nn.functional.grid_sample(
+            #     diff_sin, grid_coords, mode='bilinear', padding_mode='zeros', align_corners=True
+            # ).reshape(-1)
+            # 
+            # sampled_cos = torch.nn.functional.grid_sample(
+            #     diff_cos, grid_coords, mode='bilinear', padding_mode='zeros', align_corners=True
+            # ).reshape(-1)
+            # print("sampled_cos.shape", sampled_cos.shape)
+            # print("sampled_cos.size", sampled_cos.size())
+            # print("sampled_cos",sampled_cos)
+            
+            #Starts here
+            # 1. Force PyTorch to track operations on grid_coords
+            # local_phase_std=[]
+            P_out_diff=torch.remainder((P_out.float()-phase_tem_compensation_tensor.float()),2*torch.pi)
+            patch_local_size=2
+            # for patch_coord in grid_coords:
+            #     (local_patch_ymin, local_patch_ymax, local_patch_xmin, local_patch_xmax) = (int(patch_coord[0] - patch_local_size),
+            #                                                                                 int(patch_coord[0] + patch_local_size),
+            #                                                                                 int(patch_coord[1] - patch_local_size),
+            #                                                                                 int(patch_coord[1] + patch_local_size)
+            #
+            #     patch_local_amp = A_target_amp[local_patch_ymin:local_patch_ymax, local_patch_xmin:local_patch_xmax]
+            #     patch_local_phase = P_out_diff[local_patch_ymin:local_patch_ymax, local_patch_xmin:local_patch_xmax]
+            #     masked_patch_phase = np.ma.array(patch_local_phase, mask=np.where(
+            #         patch_local_amp / np.max(patch_local_amp) > 0.4, 0, 1))
+            #     local_phase_std.append(np.std(masked_patch_phase))
+
+
+
+            #Ends here
+            #start again:
+            # # 1. Denormalize grid_coords from [-1, 1] to image pixel space [0, H-1] or [0, W-1]
+            # # Run this if grid_coords is normalized. Adjust H and W to your image size.
+            # H, W = P_out_diff.shape[-2], P_out_diff.shape[-1]
+            # grid_coords_pixels = grid_coords.clone().detach()
+            # grid_coords_pixels[..., 0] = ((grid_coords[..., 0] + 1) * (W - 1)) / 2.0
+            # grid_coords_pixels[..., 1] = ((grid_coords[..., 1] + 1) * (H - 1)) / 2.0
+            #
+            # # Reshape grid coords to a flat list of coordinate pairs (N, 2)
+            # flat_coords = grid_coords_pixels.view(-1, 2)
+            #
+            # local_phase_std = []
+            # patch_local_size = 3
+            #
+            # # 2. Iterate using PyTorch tensors to maintain the autograd graph
+            # for patch_coord in flat_coords:
+            #     # Round or cast to integer for indexing pixel arrays safely
+            #     x_center, y_center = int(patch_coord[0].item()), int(patch_coord[1].item())
+            #
+            #     # Define bounds and clamp them to stay within image boundaries
+            #     ymin, ymax = max(0, y_center - patch_local_size), min(H, y_center + patch_local_size)
+            #     xmin, xmax = max(0, x_center - patch_local_size), min(W, x_center + patch_local_size)
+            #
+            #     # Extract patches natively as PyTorch tensors
+            #     patch_local_amp = A_target_amp[ymin:ymax, xmin:xmax]
+            #     patch_local_phase = P_out_diff[ymin:ymax, xmin:xmax]
+            #     # plt.imshow(patch_local_phase.detach().cpu().numpy())
+            #     # plt.title("patch_local_phase")
+            #     # plt.figure()
+            #     # plt.imshow(patch_local_amp.detach().cpu().numpy())
+            #     # plt.title("patch_local_amp")
+            #     # plt.show()
+            #
+            #     # Create the soft or hard mask natively in PyTorch
+            #     # Instead of NumPy masked arrays, multiply or filter with a boolean/float mask
+            #     norm_amp = patch_local_amp / (patch_local_amp.max() + 1e-12)
+            #     valid_mask = (norm_amp > 0.4).float()
+            #
+            #     # Compute the masked standard deviation
+            #     # We only take the standard deviation of elements where valid_mask == 1
+            #     num_valid = valid_mask.sum()
+            #     if num_valid > 1:
+            #         mean_phase = (patch_local_phase * valid_mask).sum() / num_valid
+            #         variance = (((patch_local_phase - mean_phase) ** 2) * valid_mask).sum() / (num_valid - 1 + 1e-12)
+            #         std_phase = torch.sqrt(variance + 1e-12)
+            #     else:
+            #         std_phase = torch.tensor(0.0, device=P_out_diff.device)
+            #
+            #     local_phase_std.append(std_phase)
+            #
+            # # Convert list of single scalars back into a combined tensor for your loss function
+            # loss_local_phase_std = torch.stack(local_phase_std).mean()
+
+            #End again
+
+
+
+            #Start4
+            coords_round_y=coords_round[:,0]
+            coords_round_x = coords_round[:, 1]
+            patch_offset_y= torch.arange(-patch_local_size,patch_local_size+1,device=P_out_diff.device).view(1,-1,1)
+            patch_offset_x = torch.arange(-patch_local_size ,patch_local_size+1,device=P_out_diff.device).view(1, 1, -1)
+            coords_round_x=torch.asarray(coords_round_x,device=P_out_diff.device).view(-1,1,1)
+            coords_round_y = torch.asarray(coords_round_y,device=P_out_diff.device).view(-1, 1, 1)
+            patch_coords_x=coords_round_x+patch_offset_x
+            patch_coords_y=coords_round_y+patch_offset_y
+            P_out_diff_patch=P_out_diff[patch_coords_y,patch_coords_x]
+            P_out_amp_patch = A_target_amp[patch_coords_y, patch_coords_x]
+            P_out_diff_mask=torch.abs(self.ion_mask[patch_coords_y, patch_coords_x])
+            #print(grid_coords.size)
+
+
+            P_out_mask_count = torch.clamp(torch.sum(P_out_diff_mask, dim=(1, 2)),min=1)
+            P_out_diff_sin_sum=torch.sum(torch.sin(P_out_diff_patch)*P_out_diff_mask,dim=(1,2))
+            P_out_diff_cos_sum=torch.sum(torch.cos(P_out_diff_patch)*P_out_diff_mask,dim=(1,2))
+            P_out_diff_R=torch.clamp((torch.hypot(P_out_diff_sin_sum,P_out_diff_cos_sum)/P_out_mask_count),1e-7, 0.9999999)
+            P_out_diff_std=torch.sqrt(-2*torch.log(P_out_diff_R)+1e-7)
+
+            #print(P_out_diff_std[0])
+            loss_local_phase_std = P_out_diff_std.mean()
+            loss_local_phase_max = P_out_diff_std.max()
+            # plt.imshow(P_out_amp_patch[0,:,:].detach().cpu().numpy())
+            # plt.title("amp0")
+            # plt.figure()
+            # plt.imshow(P_out_diff_patch[0,:,:].detach().cpu().numpy())
+            # plt.title("p0")
+            # plt.show()
+            # print(P_out_diff_std[30])
+            # plt.imshow(P_out_amp_patch[30,:,:].detach().cpu().numpy())
+            # plt.title("amp1")
+            # plt.figure()
+            # plt.imshow(P_out_diff_patch[30,:,:].detach().cpu().numpy())
+            # plt.title("p1")
+            # plt.show()
+
+
+
+            #End4
+
+            #Start3
+            '''
+            # Ensure your inputs have batch and channel dimensions: (1, 1, 4000, 4000)
+    
+
+            # Ensure 4D tensors: (1, 1, 4000, 4000)
+            if P_out_diff.dim() == 2:
+                P_out_diff = P_out_diff.unsqueeze(0).unsqueeze(0)
+            if A_target_amp.dim() == 2:
+                A_target_amp = A_target_amp.unsqueeze(0).unsqueeze(0)
+
+            # 1. Create your mask based on amplitude threshold
+            norm_amp = A_target_amp / (A_target_amp.max() + 1e-12)
+            mask_patch = (norm_amp > 0.2).float()
+
+            # 2. Decompose periodic phase into continuous sin and cos channels, then apply mask
+            sin_map = torch.sin(P_out_diff) * mask_patch
+            cos_map = torch.cos(P_out_diff) * mask_patch
+
+            # 3. Setup uniform convolution kernel (7x7 window for patch_local_size=3)
+            kernel_size = 2 * patch_local_size + 1
+            weight = torch.ones((1, 1, kernel_size, kernel_size), device=P_out_diff.device)
+
+            # 4. Compute local sums over the 4000x4000 array instantly
+            valid_count = torch.nn.functional.conv2d(mask_patch, weight, padding=patch_local_size)
+            sum_sin = torch.nn.functional.conv2d(sin_map, weight, padding=patch_local_size)
+            sum_cos = torch.nn.functional.conv2d(cos_map, weight, padding=patch_local_size)
+
+            # plt.imshow(np.abs(weight[0,0,:,:].detach().cpu().numpy()))
+            # plt.title("weight")
+            # plt.figure()
+            # plt.imshow(np.abs(sin_map[0,0,:,:].detach().cpu().numpy()))
+            # plt.title("sin_map")
+            # plt.figure()
+            # plt.imshow(np.abs(sum_sin[0,0,:,:].detach().cpu().numpy()))
+            # plt.title("sum_sin")
+            # plt.show()
+
+            # 5. Calculate local mean components
+            eps = 1e-12
+            mean_sin = sum_sin / (valid_count + eps)
+            mean_cos = sum_cos / (valid_count + eps)
+
+            # 6. Compute resultant vector length R
+            # R approaches 1.0 when phases inside the local patch are perfectly aligned/flat
+            R = torch.sqrt(mean_sin ** 2 + mean_cos ** 2 + eps)
+            R = torch.clamp(R, max=1.0)  # Clamp upper bound to prevent numerical floating errors
+
+            # 7. Convert vector length R to circular standard deviation map
+            # To make it gradient-friendly near 0, we can use a first-order Taylor approximation:
+            # std ≈ sqrt(2 * (1 - R)) which perfectly mirrors standard deviation for small variations.
+            local_std_map = torch.sqrt(2.0 * (1.0 - R) + eps)
+
+            # 8. Sample the completed, boundary-safe std map at your 31x31 positions in one shot
+            sampled_local_std = torch.nn.functional.grid_sample(
+                local_std_map,
+                grid_coords,
+                mode='bilinear',
+                padding_mode='zeros',
+                align_corners=True
+            ).reshape(-1)
+
+            # 9. Final backprop-compatible loss metric
+            loss_local_phase_std = sampled_local_std.mean()
+            loss_local_phase_max = sampled_local_std.max()
+            #print("sampled_local_std.shape",sampled_local_std.shape)
+            '''
+            #End3
+
+
+
+
+
+
 
             # Fidelity_loss = ((torch.abs(
             #     torch.sum(torch.conj(self.image_field) * (torch.asarray(A_target_amp*torch.exp(1j*P_target_phase))) * torch.asarray(self.ones_box))) ** 2 / (
@@ -2481,7 +2896,7 @@ class Wu(IFTA):
 
 
             #MAIN LOSS FUNCTION. Uncomment the rest of the loss components to give weightage to other metrics
-            loss=((loss_complexoverlap))#(target_loss/0.05)*torch.mean(torch.abs(err)**2)##+(target_loss/0.05)*torch.mean(torch.abs(err)))#+*torch.std(torch.abs(amps_current)))#+5*torch.mean(torch.abs(err)))#+runsettings.efficiency_limit_scale*4*(torch.max(torch.tensor(0.0),runsettings.efficiency_limit-Efficiency_beam_intensity)))
+            #loss=((loss_complexoverlap))#(target_loss/0.05)*torch.mean(torch.abs(err)**2)##+(target_loss/0.05)*torch.mean(torch.abs(err)))#+*torch.std(torch.abs(amps_current)))#+5*torch.mean(torch.abs(err)))#+runsettings.efficiency_limit_scale*4*(torch.max(torch.tensor(0.0),runsettings.efficiency_limit-Efficiency_beam_intensity)))
                   #+5*(loss_complexoverlap_small)+5*torch.mean(torch.abs(err))*runsettings.efficiency_limit_scale+runsettings.efficiency_limit_scale*4*(torch.max(torch.tensor(0.0),runsettings.efficiency_limit-Efficiency_beam_intensity)))#+torch.mean(torch.abs(err))
             #loss=10*torch.mean(torch.abs(err))+torch.max(torch.tensor(0.0),loss_complexoverlap-0.05)
             # if np.mod(int(epoch/100), 2) == 0:
@@ -2490,13 +2905,14 @@ class Wu(IFTA):
             #     loss=(1-Efficiency_beam_intensity)*0.2#2*torch.mean(torch.abs(err))
             # alpha_l = epoch / epochs
             # loss = (1 - alpha_l) * loss_complexoverlap + (alpha_l) * torch.mean(torch.abs(err)) * (target_loss/0.005)# + alpha_l*(torch.max(torch.tensor(0.0),0.48-Efficiency_beam_intensity))
-            # if epoch<200:
-            #     loss = loss_complexoverlap#(1-alpha_l) * loss_complexoverlap + (alpha_l) * (1-Efficiency_beam_intensity)*1
-            # else:
-            #     loss=20*(target_loss/0.005)*torch.mean(torch.abs(err)**2)#loss_complexoverlap+torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1
+            if epoch<(2000 if self.first_round else 200):
+                loss = loss_complexoverlap#+20*(target_loss/0.005)*torch.mean(torch.abs(err)**2)#+20*torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1#(1-alpha_l) * loss_complexoverlap + (alpha_l) * (1-Efficiency_beam_intensity)*1
+            else:
+                loss=loss_complexoverlap+500*loss_local_phase_std +10*(target_loss/0.0005)*loss_spots+10000*loss_spots_phase#20*(target_loss/0.005)*torch.mean(torch.abs(err))#loss_complexoverlap+torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1
             #loss= loss_complexoverlap*((1-Efficiency_beam_intensity))**50
 
-            if False:  # best loss
+
+            if True:  # best loss
                 if epoch == 0:
                     best_loss = loss
                 if loss.item() < best_loss:
@@ -2507,7 +2923,7 @@ class Wu(IFTA):
             loss.backward()
             optimizer.step()
             # phi_slm = torch.clamp(phi_slm, min=-2 * torch.pi, max=2 * torch.pi)
-            if (epoch + 1) % 200 == 0:
+            if (epoch + 1) % 100== 0:
 
                 with torch.no_grad():
                     self.totalsteperr.append((torch.abs(
@@ -2518,6 +2934,14 @@ class Wu(IFTA):
                                                   torch.sum(torch.conj(
                                                       torch.as_tensor(self.target_orig[0])) * torch.as_tensor(
                                                       self.target_orig[0]) * self.ones_box)))).item())
+                    self.totalsteperr_ion.append((torch.abs(
+                        torch.sum(torch.conj(self.image_field) * torch.as_tensor(
+                            self.target_orig[0]) * self.ion_mask)) ** 2 / (
+                                                      (torch.abs(torch.sum(torch.conj(
+                                                          self.image_field) * self.image_field * self.ion_mask))) * torch.abs(
+                                                  torch.sum(torch.conj(
+                                                      torch.as_tensor(self.target_orig[0])) * torch.as_tensor(
+                                                      self.target_orig[0]) * self.ion_mask)))).item())
 
                     efficiency = torch.sum(
                         torch.abs(torch.conj(self.image_field) * self.image_field) * self.mask) / torch.sum(
@@ -2563,16 +2987,30 @@ class Wu(IFTA):
                     plot_loss_overlap_complex.append(loss_complexoverlap.detach().cpu().numpy().item())
                     plot_eff_minus1.append((1-Efficiency_beam_intensity).detach().cpu().numpy().item())
 
+                    phase_difference_spots = (phase_sampled - phase_target_orig_sampled).remainder(2 * np.pi)
+                    spots_phase_std = scipy.stats.circstd((phase_difference_spots).detach().cpu().numpy(), low=0,
+                                                          high=2 * np.pi)
+                    phase_difference_spots_adjusted = torch.where(
+                        phase_difference_spots < torch.pi,
+                        phase_difference_spots,
+                        phase_difference_spots - torch.pi)
+                    phase_difference_spots_minmax = torch.max(phase_difference_spots_adjusted) - torch.min(
+                        phase_difference_spots_adjusted)
+
 
                 print(f'Epoch {epoch + 1}/{epochs}, Loss: {loss.item():.6f}, Efficiency: {efficiency.item():.6f}')
                 print('loss', loss.item(), 'amps_error', torch.mean(torch.abs(err)).item(), 'phase_error',
                       torch.mean(torch.abs(err_phase)).item())
-                print('loss contributors',loss_complexoverlap.item(),(1-Efficiency_beam_intensity.item()),torch.mean(torch.abs(err)).item())
+                #print('loss contributors',"loss_complex_overlap",loss_complexoverlap.item(),"1-efficiency",(1-Efficiency_beam_intensity.item()),"abs(err)",torch.mean(torch.abs(err)).item(),"loss spots",loss_spots.item(),"loss_spots_phase",loss_spots_phase.item(),"loss_local_phase_std",loss_local_phase_std.item())
+                print(
+                    f"loss contributors loss_complex_overlap {loss_complexoverlap.item():.5f} 1-efficiency {(1 - Efficiency_beam_intensity.item()):.5f} abs(err) {torch.mean(torch.abs(err)).item():.5f} loss spots {loss_spots.item():.5f} loss_spots_phase {loss_spots_phase.item():.5f} phase_std_across all spots {spots_phase_std:.5f} phase_difference_spots_minmax {phase_difference_spots_minmax.item():.5f} loss_local_phase_std {loss_local_phase_std.item():.5f} loss_local_phase_max {loss_local_phase_max.item():.5f} ")
+
                 print('loss contri scaled', 0.1*loss_complexoverlap.item(), (1 - Efficiency_beam_intensity.item())*0.02,
                       torch.mean(torch.abs(err)).item()*2.0)
                 loss_track.append(loss.item())
 
                 print("amps_current", amps_current)
+                print("amps_sampled", amps_sampled)
 
                 #print(f'Epoch {epoch + 1}/{epochs}, Loss: {loss.item():.6f}' + " fidelity:", fidelity_track[-1],
                 #      " eff:", efficiency_track[-1])
@@ -2597,8 +3035,8 @@ class Wu(IFTA):
                         target_phase_curve),device=self.device)  # phase error for each beam
                     print('amps_error', torch.mean(torch.abs(err)), 'phase_error', torch.mean(torch.abs(err_phase)))
 
-            if loss.item() < target_loss:
-            #if loss_complexoverlap.item() < target_loss:
+            #if loss.item() < target_loss:
+            if loss_complexoverlap.item() < target_loss:
                 print(f"Early stopping at epoch {epoch + 1}, loss reached {loss.item():.6f},loss_overlap {loss_complexoverlap.item():.6f}")
                 break
             #
@@ -2630,7 +3068,9 @@ class Wu(IFTA):
 
             print("non-uniformity:",amps_current_std / amps_current_avg,"std deviation:",amps_current_std)
             runsettings.amps_current_std=float(amps_current_std.detach().cpu().numpy())
-
+            runsettings.loss_spots=loss_spots.detach().cpu().numpy()
+            runsettings.loss_local_phase_std=loss_local_phase_std.detach().cpu().numpy()
+            runsettings.loss_spots_phase=loss_spots_phase.detach().cpu().numpy()
             # fig, ax1 = plt.subplots(figsize=(10, 6))
             # ax1.plot(plot_loss_overlap_complex, color='tab:blue', label='Loss')
             # ax1.set_ylabel('Loss', color='tab:blue')
@@ -2645,9 +3085,6 @@ class Wu(IFTA):
 
 
     def iterate_Gradient_staged_optimisation(self, N, wuamps0, wuphases0, target_phase_curve):
-        import torch
-        import numpy as np
-        import cupy as cp
 
         self.stepnum = 0
         loss_track = []
@@ -3440,6 +3877,7 @@ class OuterLoop:
         self.wusnonunif=[]
         self.wusphase_err=[]
         self.wusfidelity_err = []
+        self.wusfidelity_ion_err = []
         self.P_c_old=None
         
         
@@ -3703,6 +4141,7 @@ class OuterLoop:
     def iterate_updatedloop_outer(self, N=50, M=30):
 
         self.phases0 = cp.copy(self.phases)
+        print("phases in func",self.phases0)
 
         target_orig = Profile.target_output_array_bokai_Offcenter2Darb(self.m, self.n,
                                                                        center=(0.00, 0.00),
@@ -3813,12 +4252,13 @@ class OuterLoop:
 
         if method_algorithm=="grad": #Gradient
             print("Method: ", method_algorithm)
-            wu.iterate_Gradient(N,self.amps0,self.phases0,target_phase_curve)
+            wu.iterate_Gradient(N,self.amps0,self.phases0,target_phase_curve,self.phase_tem_compensation)
             self.wusImageField.append(wu.image_field)
             self.wuseff.append(wu.eff)
             self.wusnonunif.append(wu.nonunif)
             self.wusphase_err.append(wu.phase_err)
             self.wusfidelity_err.append(wu.totalsteperr)
+            self.wusfidelity_ion_err.append(wu.totalsteperr_ion)
 
         if method_algorithm=="wu_old_recovery": #Wu
             print("Method: ", method_algorithm)
@@ -4097,12 +4537,72 @@ class OuterLoop:
         print("Final check: Fid= {:.8f}, Eff= {:.8f}, Ion Fid= {:.8f}".format(Final_fidelity,
                                                                                                   Final_efficiency,
                                                                                                   Final_ion_fidelity))
+        Final_ion_fidelity_smooth =((cp.abs(cp.sum(cp.conj(wu.image_field * cp.asarray(wu.ion_mask_smooth)) * (cp.asarray(target_orig[0]) * cp.asarray(wu.ion_mask_smooth)))) ** 2 / (
+                (cp.abs(cp.sum(cp.conj(wu.image_field * cp.asarray(wu.ion_mask_smooth)) * wu.image_field * cp.asarray(wu.ion_mask_smooth)))) * cp.abs(cp.sum(cp.conj((cp.asarray(target_orig[0])) * cp.asarray(wu.ion_mask_smooth)) * (cp.asarray(target_orig[0])) * cp.asarray(wu.ion_mask_smooth))))).item())
+
+        Final_efficiency_smooth = cp.sum(cp.abs(cp.conj(wu.image_field*cp.asarray(wu.ion_mask_smooth)) * wu.image_field*cp.asarray(wu.ion_mask_smooth))) / cp.sum(
+            cp.abs(cp.conj(wu.image_field) * wu.image_field))
+        print("Final ion fidelity smooth",Final_ion_fidelity_smooth)
+        print("Final ion efficiency smooth", Final_efficiency_smooth)
+
         global_variables.final_eff_curvature.append(Final_efficiency.get())
         global_variables.final_ion_fidelity_curvature.append(Final_ion_fidelity)
         runsettings.Final_box_fidelity = Final_fidelity
         runsettings.Final_efficiency = Final_efficiency
         runsettings.Final_ion_fidelity = Final_ion_fidelity
+        runsettings.fidelity_ion_list=self.wusfidelity_ion_err
+        runsettings.efficiency_ion_list=self.wuseff
         self.min_it=len(self.wusImageField)-1
+
+        # plt.imshow(np.abs(cp.asarray(wu.mask).get()))
+        # plt.title("wu.mask")
+        # plt.figure()
+        # plt.imshow(np.abs(cp.asarray(wu.ion_mask).get()))
+        # plt.title("wu.ionmask")
+        # plt.figure()
+        # plt.imshow(np.abs(cp.asarray(wu.ion_mask_smooth).get()))
+        # plt.title("wu.ionmask")
+        # plt.show()
+
+        # 1. Select mask and power-normalize both fields inside the ROI
+        M_finalplot = cp.asarray(wu.ion_mask)  # Swap with wu.ones_box if needed
+        E_finalplot = wu.image_field / cp.sqrt(cp.sum(cp.abs(wu.image_field) ** 2 * M_finalplot))
+        T_finalplot = cp.asarray(target_orig[0]) / cp.sqrt(
+            cp.sum(cp.abs(cp.asarray(target_orig[0])) ** 2 * M_finalplot)
+        )
+
+        # 2. Phase-align and compute point-by-point error magnitude
+        diff_finalplot = cp.abs(
+            (E_finalplot * cp.exp(1j * cp.angle(cp.sum(cp.conj(E_finalplot) * T_finalplot * M_finalplot))) - T_finalplot) * M_finalplot
+        ).get()
+        diff_finalplot[M_finalplot.get() == 0] = cp.nan  # Hide pixels outside ROI
+        E_finalplot[M_finalplot.get() == 0] = cp.nan  # Hide pixels outside ROI
+        T_finalplot[M_finalplot.get() == 0] = cp.nan  # Hide pixels outside ROI
+
+        if runsettings.plot_images_global:
+            #3. Plot normalized error distribution
+            plt.figure(figsize=(6, 5))
+            plt.imshow(diff_finalplot, cmap="inferno")
+            plt.colorbar(label="Local Error |ΔE|")
+            plt.title("Spatial Error Map in ROI")
+            plt.figure(figsize=(6, 5))
+            plt.imshow(np.abs(E_finalplot.get()), cmap="inferno")
+            plt.colorbar(label=" |E|")
+            plt.title("Calculated electric field")
+            plt.figure(figsize=(6, 5))
+            plt.imshow(np.abs(T_finalplot.get()), cmap="inferno")
+            plt.colorbar(label="|E|")
+            plt.title("Target Electric field")
+            plt.show()
+
+
+        '''New func'''
+        I_final=cp.asnumpy(cp.abs(wu.image_field)**2)
+        I_final = I_final / np.max(I_final)
+        np.save("simulation_intensity.npy", I_final)
+        '''End New func'''
+
+
         return wu.slm_field#self.wusField[self.min_it]  # self.wus[self.min_it].slm_field #Original with wus as the whole object
 
 
@@ -4142,7 +4642,10 @@ class OuterLoop:
 
 
         plotter.plot([n for n in range(len(self.wusfidelity_err[self.min_it]))], cp.array(self.wusfidelity_err[self.min_it]).get(),
-                 label='Total fidelity error')
+                 label='Total fidelity')
+        plotter.plot([n for n in range(len(self.wusfidelity_ion_err[self.min_it]))],
+                     cp.array(self.wusfidelity_ion_err[self.min_it]).get(),
+                     label='Ion fidelity')
 
         if figs[0] is None:
             plotter.xlabel('Inner Iteration')
@@ -4470,7 +4973,7 @@ def test_amps(m=4,n=5, N=60, size=(1024,1272), beams0=(1., 1., 1., 1., 1.), beam
     # target_phase_curve=[]
     # for i in target[1]:
     #     target_phase_curve.append(cp.angle(target[0][i[0]][i[1]]))
-    # print('target phase',target_phase_curve)
+    # # print('target phase',target_phase_curve)
     # plt.imshow(np.abs(target[0].get()))
     # plt.title("target")
     # plt.figure()
@@ -4542,7 +5045,7 @@ def plot_gradient(field, coord=False, axis=0, target=None, fig=None, intensity=F
         plt.colorbar()
         plt.show()
         if phase_tem_compensation is not None:
-            plt.imshow(np.mod(np.angle(field.get())-np.angle(phase_tem_compensation),2*np.pi))
+            plt.imshow(np.mod(np.angle(field.get())-np.angle(phase_tem_compensation)+2,2*np.pi), cmap='nipy_spectral')
             plt.title("Final field angle - phase tem compensation")
             plt.colorbar()
             plt.show()
@@ -4551,7 +5054,7 @@ def plot_gradient(field, coord=False, axis=0, target=None, fig=None, intensity=F
         # print(coord)
     else:
         coord = np.where(np.abs(field) == np.max(np.abs(field)))[0][0]
-        #coord = len(field) / 2 - 1
+        coord = len(field) / 2 - 1 #MDS REMOVE THIS, FIXED CROSSECTION
     # E_t = np.real(target_field[len(target_field) / 2 - 1, :].get())
     E_im = field[coord, :].get()
     E_im /= np.max(np.abs(E_im))
@@ -4562,7 +5065,15 @@ def plot_gradient(field, coord=False, axis=0, target=None, fig=None, intensity=F
     plt.figure()
     plt.plot(np.arange(len(E_im)),np.abs(E_im))
     plt.plot(np.arange(len(E_im)), np.where(np.abs(E_im)>0.1,np.mod(np.angle(E_im)-np.angle(phase_tem_compensation[int(coord), :])+1,2*np.pi),0))
+    plt.title("Phase crossection-phase comp")
+    plt.figure()
+    plt.plot(np.arange(len(E_im)),np.abs(E_im))
+    plt.plot(np.arange(len(E_im)), np.where(np.abs(E_im)>0.1,np.mod(np.angle(E_im)+1,2*np.pi),0))
     plt.title("Phase crossection")
+    plt.figure()
+    plt.plot(np.arange(len(E_im)),np.abs(E_im)**2)
+    plt.plot(np.arange(len(E_im)), np.where(np.abs(E_im)>0.1,np.mod(np.angle(E_im)+1,2*np.pi),0))
+    plt.title("Intensity, Phase crossection")
 
     if fig is None:
         plt.figure()

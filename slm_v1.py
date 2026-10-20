@@ -20,7 +20,7 @@ def hsv2rgb(h, s, v):
 # Class to represent an SLM
 class SLM:
 
-    def __init__(self, size=np.array((1024, 1272)), correction_path="images/413corrwithLUT.bmp", lut=None, pitch=12500,
+    def __init__(self, size=np.array((1024, 1272)), correction_path="C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/images/413corrwithLUT.bmp", lut=None, pitch=12500,
                  wavelength=413):
         # LUT for number of phase increments on SLM pixels
         if lut is None:

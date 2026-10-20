@@ -17,12 +17,12 @@ def zbf_func():
     # X_size_mm = Full X size of the beam array in mm
     # Wave_mm = Wavelength in mm
     # Text_bool = Boolean. Write 1 to create a ZBF text or 0 to creata a ZBF binary
-    filepath_read = r'C:\Python programs\slm_comp_pytorch\images\wu1x4_intensity.bmp'
-    filepath_read_p = r'C:\Python programs\slm_comp_pytorch\images\wu1x4_phase.bmp'
-    filepath_write = r'C:\Users\RiceT\Documents\Zemax\POP\BEAMFILES\LaserBeamSlm_tem01_5_1_0p72_000p200_negCorrect.ZBF'
+    filepath_read = runsettings.directory_SLM_Pytorch + r'\images\wu1x4_intensity.bmp'
+    filepath_read_p = runsettings.directory_SLM_Pytorch + r'\images\wu1x4_phase.bmp'
+    filepath_write = r'C:\Users\TrappedIonRiceDell1\Documents\Zemax\POP\BEAMFILES\LaserBeamSlm_sys2_sample.ZBF'
     #filepath_write = r'C:\Python programs\slm_comp_pytorch\images\zemax_files\LaserBeamSlm_tem01_11_1.ZBF'
     pad_num=1 #odd number only, pad_num+1 is the actual scaling
-    X_size_mm = 13*2#*(pad_num+1)*2# for padding #13 original #has to be integer number, otherwise there seems to be a problem.
+    X_size_mm = 25.6#15.9*2#13*2#*(pad_num+1)*2# for padding #13 original #has to be integer number, otherwise there seems to be a problem.
     Wave_mm = 0.000411
     Text_bool = 0
 
@@ -47,7 +47,9 @@ def zbf_func():
 
     # Convert to grey scale
     im = np.array(Image.open(filepath_read).convert('L'))  # you can pass multiple arguments in single line
-    im_p = np.array(Image.open(filepath_read_p).convert('L'))
+    im_p = 255-np.array(Image.open(filepath_read_p).convert('L'))
+    # im_p=np.mod(im_p+123,255)
+    # im_p=np.flip(im_p)
     # plt.imshow(im)
     # plt.colorbar()
     # plt.show()
@@ -66,43 +68,104 @@ def zbf_func():
     plt.title("im_p")
     plt.show()
 
+    im_fft=np.fft.ifftshift(np.fft.fft2(np.fft.fftshift(im*np.exp(1j*im_p*2*np.pi/255))))
+
+    plt.imshow(im)
+    plt.title("im")
+    plt.figure()
+    plt.imshow(im_p)
+    plt.title("im_p")
+    plt.figure()
+    plt.imshow(np.abs(im_fft))
+    plt.title("im_fft abs")
+    plt.figure()
+    plt.imshow(np.angle(im_fft))
+    plt.title("im_fft angle")
+    plt.figure()
+
+    im_pad=np.zeros((2048,2048))
+    im_p_pad=np.zeros((2048,2048))
+    im_p_pad[512:1024+512,388:1272+388]=im_p
+    im_pad[512:1024+512,388:1272+388]=im
+    im=im_pad
+    im_p=im_p_pad
+    plt.imshow(im_p)
+    plt.title("im_p")
+    plt.figure()
+    plt.imshow(im)
+    plt.title("im")
+    plt.figure()
+
+    im_fft=np.fft.ifftshift(np.fft.fft2(np.fft.fftshift(im*np.exp(1j*im_p*2*np.pi/255))))
+
+    plt.imshow(im)
+    plt.title("im")
+    plt.figure()
+    plt.imshow(im_p)
+    plt.title("im_p")
+    plt.figure()
+    plt.imshow(np.abs(im_fft))
+    plt.title("im_fft abs")
+    plt.figure()
+    plt.imshow(np.angle(im_fft))
+    plt.title("im_fft angle")
+    plt.show()
+
 
 
 
     size = im.shape
-    Number_Y_pixels = size[0]
-    Number_X_pixels = size[1]
-    print("size",size)
+    if False: # original padding
+        Number_Y_pixels = size[0]
+        Number_X_pixels = size[1]
+        print("size",size)
 
-    # The array size in POP are power of 2, for example 32 (2^5), 64 (2^6),
-    # The array size must be a power of 2 so need to resize
+        # The array size in POP are power of 2, for example 32 (2^5), 64 (2^6),
+        # The array size must be a power of 2 so need to resize
 
-    padding_y = next_largest_power_of_2(Number_Y_pixels) - Number_Y_pixels
-    padding_x = next_largest_power_of_2(Number_X_pixels) - Number_X_pixels
-    print("mds16")
-    padding_y_left = int(padding_y / 2)
-    padding_y_right = padding_y - padding_y_left
-    padding_x_left = int(padding_x / 2)
-    padding_x_right = padding_x - padding_x_left
+        padding_y = next_largest_power_of_2(Number_Y_pixels) - Number_Y_pixels
+        padding_x = next_largest_power_of_2(Number_X_pixels) - Number_X_pixels
+        print("mds16")
+        padding_y_left = int(padding_y / 2)
+        padding_y_right = padding_y - padding_y_left
+        padding_x_left = int(padding_x / 2)
+        padding_x_right = padding_x - padding_x_left
 
-    im = np.pad(im, ((padding_y_left, padding_y_right), (padding_x_left, padding_x_right)), 'constant',
-                constant_values=(0))
-    im_p = np.pad(im_p, ((padding_y_left, padding_y_right), (padding_x_left, padding_x_right)), 'constant',
-                  constant_values=(0))
+        im = np.pad(im, ((padding_y_left, padding_y_right), (padding_x_left, padding_x_right)), 'constant',
+                    constant_values=(0))
+        im_p = np.pad(im_p, ((padding_y_left, padding_y_right), (padding_x_left, padding_x_right)), 'constant',
+                      constant_values=(0))
 
-    # If the original size of the image was an even number of pixels
-    if padding_y_left != padding_y_right:
-        column = np.zeros(next_largest_power_of_2(Number_Y_pixels), 1)
-        im = np.vstack([im, column])
-        im_p = np.vstack([im_p, column])
-    if padding_x_left != padding_x_right:
-        row = np.zeros(next_largest_power_of_2(Number_X_pixels), 1)
-        im = np.hstack([im, row])
-        im_p = np.hstack([im_p, row])
+        # If the original size of the image was an even number of pixels
+        if padding_y_left != padding_y_right:
+            column = np.zeros(next_largest_power_of_2(Number_Y_pixels), 1)
+            im = np.vstack([im, column])
+            im_p = np.vstack([im_p, column])
+        if padding_x_left != padding_x_right:
+            row = np.zeros(next_largest_power_of_2(Number_X_pixels), 1)
+            im = np.hstack([im, row])
+            im_p = np.hstack([im_p, row])
 
-    # Finally we flipped the array
-    im = np.flipud(im)
-    im_p = np.flipud(im_p)
+        # Finally we flipped the array
+        # im = np.flipud(im)
+        # im_p = np.flipud(im_p)
+
+    im_fft=np.fft.ifftshift(np.fft.fft2(np.fft.fftshift(im*np.exp(1j*im_p*2*np.pi/255))))
+
+    plt.imshow(im)
+    plt.title("im")
+    plt.figure()
+    plt.imshow(im_p)
+    plt.title("im_p")
+    plt.figure()
+    plt.imshow(np.abs(im_fft))
+    plt.title("im_fft abs")
+    plt.figure()
+    plt.imshow(np.angle(im_fft))
+    plt.title("im_fft angle")
+    plt.show()
+
+    im=im**np.sqrt(2)
 
     # Now the array size is a power of 2
     size = im.shape

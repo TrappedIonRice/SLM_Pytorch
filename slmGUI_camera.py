@@ -4,7 +4,7 @@ import tkinter.filedialog
 from Filrcamera import  FlirCamSelector
 import FlirCamController_slm
 # print(sys.path)
-# sys.path.append('C:/Users/RiceT/Documents/SLM_computation/Filrcamera')
+# sys.path.append('C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera')
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 from contextlib import redirect_stdout
@@ -90,26 +90,26 @@ def findfilepath(shift):
 #use it to localize the address of photos taken in doing SLM optical abberation correction with scan(self)
     image_paths = []
     name1 = f'image_{shift[0]}_{shift[1]}_{0}.bmp'
-    directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction1'
+    directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction1'
     image_paths.append(os.path.join(directory, name1))
     name2 = f'image_{shift[0]}_{shift[1]}_{120}.bmp'
-    directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction1'
+    directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction1'
     image_paths.append(os.path.join(directory, name2))
     name3 = f'image_{shift[0]}_{shift[1]}_{240}.bmp'
-    directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction1'
+    directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction1'
     image_paths.append(os.path.join(directory, name3))
     return image_paths
 def findfilepath2(shift):
     # use it to localize the address of photos taken in measuring referrence veam with scan(self)
     image_paths = []
     name1 = f'image_{shift[0]}_{shift[1]}_{0}.bmp'
-    directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction2'
+    directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction2'
     image_paths.append(os.path.join(directory, name1))
     name2 = f'image_{shift[0]}_{shift[1]}_{120}.bmp'
-    directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction2'
+    directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction2'
     image_paths.append(os.path.join(directory, name2))
     name3 = f'image_{shift[0]}_{shift[1]}_{240}.bmp'
-    directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction2'
+    directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction2'
     image_paths.append(os.path.join(directory, name3))
     return image_paths
 def camera_success(shift):
@@ -1255,20 +1255,20 @@ class slmGUI(Ui_MainWindow):
                             phase_tilty[number_x[i]][number_y[j]] = b
                         '''
 
-            #phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_phase.txt'
-            phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_phase_MDS_crop_interferencecenter1.txt'
+            #phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_phase.txt'
+            phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_phase_MDS_crop_interferencecenter1.txt'
 
             np.savetxt(phase_path, np.array(phase))
-            #phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_tilt_x_add.txt'
-            phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\corrections_tilt_x_add_MDS_crop_interferencebeamcenter1.txt'
+            #phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_tilt_x_add.txt'
+            phase_path = runsettings.directory_FlirCamera + r'\pictures\corrections_tilt_x_add_MDS_crop_interferencebeamcenter1.txt'
 
             np.savetxt(phase_path, np.array(phase_tiltx))
-            #phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_tilt_y_add.txt'
-            phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_tilt_y_add_MDS_crop_interferencebeamcenter1.txt'
+            #phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_tilt_y_add.txt'
+            phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_tilt_y_add_MDS_crop_interferencebeamcenter1.txt'
 
             np.savetxt(phase_path, np.array(phase_tilty))
 
-            phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_phase_MDS_crop_amp1.txt'
+            phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_phase_MDS_crop_amp1.txt'
             np.savetxt(phase_path, np.array(p_amp_MDS_full))
             plt.imshow(phase)
             plt.title(xxx*100000+yyy)
@@ -1282,15 +1282,15 @@ class slmGUI(Ui_MainWindow):
             name='array'+self.text_array_number_1.text()+'_'+self.text_array_number_2.text()+' tem0'+self.text_tem_n.text()
             name =name+' phase'+self.text_targetphase.text()+'_'+time.strftime("%Y%m%d-%H%M%S")
             try:
-                path=Path('C:/Users/RiceT/Documents/SLM_computation/data/'+name)
+                path=Path('C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/data/'+name)
                 path.mkdir()
             except Exception as e:
-                print('foler '+'C:/Users/RiceT/Documents/SLM_computation/data/'+name+' already exsist')
-            folder_path='C:/Users/RiceT/Documents/SLM_computation/data/'+name+'/'
+                print('foler '+'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/data/'+name+' already exsist')
+            folder_path='C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/data/'+name+'/'
             paths = [self.filename_phase_0.text(),
-                     r"C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/average_image1.bmp",
-                     r"C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/average_image2.bmp",
-                     r"C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/average_image3.bmp"]
+                     r"C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/average_image1.bmp",
+                     r"C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/average_image2.bmp",
+                     r"C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/average_image3.bmp"]
             data0 = (np.array(im.open(paths[0]), dtype=np.float64))
             cv2.imwrite(folder_path+'intensity.bmp', data0)
             np.savetxt(folder_path + 'intensity.txt', np.array(data0))
@@ -1315,7 +1315,7 @@ class slmGUI(Ui_MainWindow):
             print('save data', e)
             traceback.print_exc()
     def reference_scan_analyse(self): #Finds center of beam
-        directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\reference\intensity'
+        directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\reference\intensity'
         shift=[0.0,0.0]
         now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(0)
         name = f"image_{now}.bmp"
@@ -1385,7 +1385,7 @@ class slmGUI(Ui_MainWindow):
         print('em')
         try:
             wavelength = 411
-            phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_phase.txt'
+            phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_phase.txt'
             correction = np.loadtxt(phase_path)
             print(correction.shape)
             block_size = [int(self.text_patch_size_x.text()), int(self.text_patch_size_y.text())]
@@ -1407,9 +1407,9 @@ class slmGUI(Ui_MainWindow):
             matrix_correction = slm.pad_border(matrix_correction, (1024, 1272))
 
             mod = ArrayModulator(beams=1, correction_path='images/%dcorrwithLUT.bmp' % wavelength)
-            self.correction_phase_1 = r"C:\Users\RiceT\Documents\SLM_computation\images\phase_mask_0.bmp"
-            self.correction_phase_2 = r"C:\Users\RiceT\Documents\SLM_computation\images\phase_mask_120.bmp"
-            self.correction_phase_3 = r"C:\Users\RiceT\Documents\SLM_computation\images\phase_mask_240.bmp"
+            self.correction_phase_1 = runsettings.directory_SLM_computation + r"\images\phase_mask_0.bmp"
+            self.correction_phase_2 = runsettings.directory_SLM_computation + r"\images\phase_mask_120.bmp"
+            self.correction_phase_3 = runsettings.directory_SLM_computation + r"\images\phase_mask_240.bmp"
             ena = np.zeros(3)
             data_fit = np.zeros((3000, 4000))
             x_data = []
@@ -1420,9 +1420,9 @@ class slmGUI(Ui_MainWindow):
             import traceback
             print('scan', e)
             traceback.print_exc()
-        self.correction_phase_1 = r'C:/Users/RiceT/Documents/SLM_computation/images/phase_mask_0.bmp'
-        self.correction_phase_2 = r'C:/Users/RiceT/Documents/SLM_computation/images/phase_mask_120.bmp'
-        self.correction_phase_3 = r'C:/Users/RiceT/Documents/SLM_computation/images/phase_mask_240.bmp'
+        self.correction_phase_1 = r'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/images/phase_mask_0.bmp'
+        self.correction_phase_2 = r'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/images/phase_mask_120.bmp'
+        self.correction_phase_3 = r'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/images/phase_mask_240.bmp'
         number_x = list(range(point_x))
         random.shuffle(number_x)
         number_y = list(range(point_y))
@@ -1502,7 +1502,7 @@ class slmGUI(Ui_MainWindow):
 
                                 time.sleep(0.3)
                                 self.flir.acquire_continue()
-                                directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction2'
+                                directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction2'
                                 now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(0)
                                 name = f"image_{now}.bmp"
                                 path = os.path.join(directory, name)
@@ -1512,7 +1512,7 @@ class slmGUI(Ui_MainWindow):
 
                                 time.sleep(0.3)
                                 self.flir.acquire_continue()
-                                directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction2'
+                                directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction2'
                                 now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(120)
 
                                 name = f"image_{now}.bmp"
@@ -1521,7 +1521,7 @@ class slmGUI(Ui_MainWindow):
                                 self.sent_phase_scan_MDS(3)
                                 time.sleep(0.3)
                                 self.flir.acquire_continue()
-                                directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction2'
+                                directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction2'
                                 now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(240)
 
                                 name = f"image_{now}.bmp"
@@ -1632,16 +1632,16 @@ class slmGUI(Ui_MainWindow):
                     traceback.print_exc()
 
         #MDS test added for testing
-        phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\phasecollectfull_17_01_2025.txt'
+        phase_path = runsettings.directory_FlirCamera + r'\pictures\phasecollectfull_17_01_2025.txt'
         np.savetxt(phase_path, np.array(phase_collect))
         cv2.imwrite("phasecollectfull_17_01_2025.bmp", phase_collect)
         plt.imshow(phase_collect)
         plt.colorbar()
         plt.show()
-        phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\phasecollectfull1_17_01_2025.txt'
+        phase_path = runsettings.directory_FlirCamera + r'\pictures\phasecollectfull1_17_01_2025.txt'
         np.savetxt(phase_path, np.array(phase_collect))
         cv2.imwrite("phasecollectfull1_17_01_2025.bmp", phase_collect)
-        # phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\fit_data.txt'
+        # phase_path = runsettings.directory_FlirCamera + r'\pictures\fit_data.txt'
         # np.savetxt(phase_path, np.array(data_fit))
         #
         # plt.figure(figsize=(8, 6))
@@ -1714,7 +1714,7 @@ class slmGUI(Ui_MainWindow):
         #     #     plt.plot(x, intensity_plot, label='measure', color='blue')
         #     #     plt.plot(x, field_plot, label='expect', color='red')
         #     #     plt.show()
-        #     phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\data_fit.txt'
+        #     phase_path = runsettings.directory_FlirCamera + r'\pictures\data_fit.txt'
         #
         #     np.savetxt(phase_path, data_fit)
         #
@@ -1745,7 +1745,7 @@ class slmGUI(Ui_MainWindow):
         print('em')
         try:
             wavelength=411
-            phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_phase.txt'
+            phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_phase.txt'
             correction = np.loadtxt(phase_path)
             print(correction.shape)
             block_size = [int(self.text_patch_size_x.text()), int(self.text_patch_size_y.text())]
@@ -1768,9 +1768,9 @@ class slmGUI(Ui_MainWindow):
 
 
             mod = ArrayModulator(beams=1, correction_path='images/%dcorrwithLUT.bmp' % wavelength)
-            self.correction_phase_1 = r"C:\Users\RiceT\Documents\SLM_computation\images\phase_mask_0.bmp"
-            self.correction_phase_2 = r"C:\Users\RiceT\Documents\SLM_computation\images\phase_mask_120.bmp"
-            self.correction_phase_3 = r"C:\Users\RiceT\Documents\SLM_computation\images\phase_mask_240.bmp"
+            self.correction_phase_1 = runsettings.directory_SLM_computation + r"\images\phase_mask_0.bmp"
+            self.correction_phase_2 = runsettings.directory_SLM_computation + r"\images\phase_mask_120.bmp"
+            self.correction_phase_3 = runsettings.directory_SLM_computation + r"\images\phase_mask_240.bmp"
             ena=np.zeros(3)
             data_fit = np.zeros((3000,4000))
             x_data = []
@@ -1781,9 +1781,9 @@ class slmGUI(Ui_MainWindow):
             import traceback
             print('scan', e)
             traceback.print_exc()
-        self.correction_phase_1=r'C:/Users/RiceT/Documents/SLM_computation/images/phase_mask_0.bmp'
-        self.correction_phase_2 = r'C:/Users/RiceT/Documents/SLM_computation/images/phase_mask_120.bmp'
-        self.correction_phase_3 = r'C:/Users/RiceT/Documents/SLM_computation/images/phase_mask_240.bmp'
+        self.correction_phase_1=r'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/images/phase_mask_0.bmp'
+        self.correction_phase_2 = r'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/images/phase_mask_120.bmp'
+        self.correction_phase_3 = r'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/images/phase_mask_240.bmp'
         number_x = list(range(point_x))
         random.shuffle(number_x)
         number_y = list(range(point_y))
@@ -1824,7 +1824,7 @@ class slmGUI(Ui_MainWindow):
 
                             time.sleep(0.3)
                             self.flir.acquire_continue()
-                            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction2'
+                            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction2'
                             now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(0)
                             name = f"image_{now}.bmp"
                             path = os.path.join(directory, name)
@@ -1834,7 +1834,7 @@ class slmGUI(Ui_MainWindow):
 
                             time.sleep(0.3)
                             self.flir.acquire_continue()
-                            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction2'
+                            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction2'
                             now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(120)
 
                             name = f"image_{now}.bmp"
@@ -1843,7 +1843,7 @@ class slmGUI(Ui_MainWindow):
                             self.sent_phase_scan_MDS(3)
                             time.sleep(0.3)
                             self.flir.acquire_continue()
-                            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction2'
+                            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction2'
                             now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(240)
 
                             name = f"image_{now}.bmp"
@@ -1945,8 +1945,8 @@ class slmGUI(Ui_MainWindow):
                     import traceback
                     print('scan', e)
                     traceback.print_exc()
-        #phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\fit_data.txt'
-        phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\fit_data_MDS.txt'
+        #phase_path = runsettings.directory_FlirCamera + r'\pictures\fit_data.txt'
+        phase_path = runsettings.directory_FlirCamera + r'\pictures\fit_data_MDS.txt'
         np.savetxt(phase_path, np.array(data_fit))
 
         plt.figure(figsize=(8, 6))
@@ -2021,7 +2021,7 @@ class slmGUI(Ui_MainWindow):
             #     plt.plot(x, intensity_plot, label='measure', color='blue')
             #     plt.plot(x, field_plot, label='expect', color='red')
             #     plt.show()
-            phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\data_fit.txt'
+            phase_path = runsettings.directory_FlirCamera + r'\pictures\data_fit.txt'
 
             np.savetxt(phase_path, data_fit)
 
@@ -2105,7 +2105,7 @@ class slmGUI(Ui_MainWindow):
                         mod.phaseToBMP_correct(mod.phase, name=f'correction_{shift[0]}_{shift[1]}_shift_{phi}', color=False,
                                        correction=False, wavelength=411)
                         mod.add_phase(-mod.phase)
-                        directory = r"C:\Users\RiceT\Documents\SLM_computation\correction1"
+                        directory = runsettings.directory_SLM_computation + r"\correction1"
                         self.correction_phase_1 = os.path.join(directory, name1)
 
 
@@ -2123,7 +2123,7 @@ class slmGUI(Ui_MainWindow):
                         mod.phaseToBMP_correct(mod.phase, name=f'correction_{shift[0]}_{shift[1]}_shift_{phi}', color=False,
                                        correction=False, wavelength=411)
                         mod.add_phase(-mod.phase)
-                        directory = r"C:\Users\RiceT\Documents\SLM_computation\correction1"
+                        directory = runsettings.directory_SLM_computation + r"\correction1"
                         self.correction_phase_2 = os.path.join(directory, name2)
                         phi = 240
                         phase_shift = phase_shift_0 + phi / 180 * np.pi
@@ -2138,7 +2138,7 @@ class slmGUI(Ui_MainWindow):
                         name3 = f'correction_{shift[0]}_{shift[1]}_shift_{phi}.bmp'
                         mod.phaseToBMP_correct(mod.phase, name=f'correction_{shift[0]}_{shift[1]}_shift_{phi}', color=False,
                                        correction=False, wavelength=411)
-                        directory = r"C:\Users\RiceT\Documents\SLM_computation\correction1"
+                        directory = runsettings.directory_SLM_computation + r"\correction1"
                         self.correction_phase_3 = os.path.join(directory, name3)
                         mod.add_phase(-mod.phase)
                     except Exception as e:
@@ -2149,7 +2149,7 @@ class slmGUI(Ui_MainWindow):
                     self.sent_phase_scan_MDS(1)
                     time.sleep(0.2)#0.3
                     self.flir.acquire_continue()
-                    directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction1'
+                    directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction1'
                     now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(0)
                     name = f"image_{now}.bmp"
                     path = os.path.join(directory, name)
@@ -2159,7 +2159,7 @@ class slmGUI(Ui_MainWindow):
 
                     time.sleep(0.2)#0.3
                     self.flir.acquire_continue()
-                    directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction1'
+                    directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction1'
                     now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(120)
 
                     name = f"image_{now}.bmp"
@@ -2168,7 +2168,7 @@ class slmGUI(Ui_MainWindow):
                     self.sent_phase_scan_MDS(3)
                     time.sleep(0.2)#0.3
                     self.flir.acquire_continue()
-                    directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction1'
+                    directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction1'
                     now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(240)
 
                     name = f"image_{now}.bmp"
@@ -2178,7 +2178,7 @@ class slmGUI(Ui_MainWindow):
 
                     for phidelete in (0,120,240):
                         deletename = f'correction_{shift[0]}_{shift[1]}_shift_{phidelete}.bmp'
-                        deletedirectory = r"C:\Users\RiceT\Documents\SLM_computation\correction1"
+                        deletedirectory = runsettings.directory_SLM_computation + r"\correction1"
                         file_to_delete = os.path.join(deletedirectory, deletename)
                         #file_to_delete = "my_file.txt"
 
@@ -2207,7 +2207,7 @@ class slmGUI(Ui_MainWindow):
                             self.sent_phase_scan_MDS(1)
                             time.sleep(0.3)
                             self.flir.acquire_continue()
-                            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction1'
+                            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction1'
                             now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(0)
                             name = f"image_{now}.bmp"
                             path = os.path.join(directory, name)
@@ -2215,7 +2215,7 @@ class slmGUI(Ui_MainWindow):
                             self.sent_phase_scan_MDS(2)
                             time.sleep(0.3)
                             self.flir.acquire_continue()
-                            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction1'
+                            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction1'
                             now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(120)
                             name = f"image_{now}.bmp"
                             path = os.path.join(directory, name)
@@ -2223,7 +2223,7 @@ class slmGUI(Ui_MainWindow):
                             self.sent_phase_scan_MDS(3)
                             time.sleep(0.3)
                             self.flir.acquire_continue()
-                            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\correction1'
+                            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction1'
                             now = str(shift[0]) + '_' + str(shift[1]) + '_' + str(240)
                             name = f"image_{now}.bmp"
                             path = os.path.join(directory, name)
@@ -2239,7 +2239,7 @@ class slmGUI(Ui_MainWindow):
             import slm_v1 as slm
             wavelength=411
             mod = ArrayModulator(beams=1, correction_path='images/%dcorrwithLUT.bmp' % wavelength)
-            phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_phase.txt'
+            phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_phase.txt'
             correction = np.loadtxt(phase_path)
             grady = mod.gradient(mod.beams[0][1], angle=float(self.text_deflection_y.text()) * np.pi / 180, axis=0, wavelength=wavelength)
             gradx = mod.gradient(mod.beams[0][1], angle=float(self.text_deflection_x.text()) * np.pi / 180, axis=1, wavelength=wavelength)
@@ -2287,8 +2287,8 @@ class slmGUI(Ui_MainWindow):
                 phases =tuple(0.+self.relative_phase[i]  for i in range(n * m))
                 if int(self.text_tem_n.text()) != 0:
                     tem01 = True
-                    phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01.txt'
-                    #phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01withT.txt'
+                    phase_path = runsettings.directory_SLM_computation + r'\images\tem01.txt'
+                    #phase_path = runsettings.directory_SLM_computation + r'\images\tem01withT.txt'
                     phase_mask_tem01 = np.loadtxt(phase_path)
                     #mod.add_phase(np.array(phase_mask_tem01))
                     tem01 = True
@@ -2340,7 +2340,7 @@ class slmGUI(Ui_MainWindow):
             mod.phaseToBMP(mod.phase, name='phase_mask_120', color=False, correction=False, wavelength=411)
             mod.phase = mod.phase + 120 / 180 * np.pi
             mod.phaseToBMP(mod.phase, name='phase_mask_240', color=False, correction=False, wavelength=411)
-            phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\phaseGUI.txt'
+            phase_path = runsettings.directory_SLM_computation + r'\images\phaseGUI.txt'
             np.savetxt(phase_path, mod.phase)
         except Exception as e:
             import traceback
@@ -2384,9 +2384,9 @@ class slmGUI(Ui_MainWindow):
             if int(self.text_tem_n.text())!=0:# for tem01, beam number=n*m*2
                 num_x=num_x*2
             paths = [self.filename_phase_0.text(),
-                     r"C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/average_image1.bmp",
-                     r"C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/average_image2.bmp",
-                     r"C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/average_image3.bmp"]
+                     r"C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/average_image1.bmp",
+                     r"C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/average_image2.bmp",
+                     r"C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/average_image3.bmp"]
             slm = SLM()
             sigma = 1
             import PhaseExtraction_v1 as PhaseExtraction
@@ -2838,7 +2838,7 @@ class slmGUI(Ui_MainWindow):
             try:
 
                 if self.checkbox_addlist_1.isChecked():
-                    folder_path='C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/image1'
+                    folder_path='C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/image1'
                     print('path')
                     image_path=self.findfilepath(folder_path)
                     print(image_path)
@@ -2848,7 +2848,7 @@ class slmGUI(Ui_MainWindow):
                     # print(np.max(avg_image))
 
                     # avg_image_pil = Image.fromarray(avg_image)
-                    phase_path='C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/average_image1.bmp'
+                    phase_path='C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/average_image1.bmp'
                     cv2.imwrite(phase_path, avg_image)
                     print('write')
 
@@ -2876,12 +2876,12 @@ class slmGUI(Ui_MainWindow):
 
                     figure.draw()
                 if self.checkbox_addlist_2.isChecked():
-                    folder_path = 'C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/image2'
+                    folder_path = 'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/image2'
                     image_path = self.findfilepath(folder_path)
                     avg_image = self.calculate_average_image(image_path)
 
                     avg_image_pil = Image.fromarray(avg_image)
-                    phase_path = 'C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/average_image2.bmp'
+                    phase_path = 'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/average_image2.bmp'
                     cv2.imwrite(phase_path, avg_image)
                     units = ' (px)'
                     name = 'average 2'
@@ -2909,12 +2909,12 @@ class slmGUI(Ui_MainWindow):
                     self.image_colorbar_2_num = 1
                     figure.draw()
                 if self.checkbox_addlist_3.isChecked():
-                    folder_path = 'C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/image3'
+                    folder_path = 'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/image3'
                     image_path = self.findfilepath(folder_path)
                     avg_image = self.calculate_average_image(image_path)
 
                     avg_image_pil = Image.fromarray(avg_image)
-                    phase_path = 'C:/Users/RiceT/Documents/SLM_computation/Filrcamera/pictures/average_image3.bmp'
+                    phase_path = 'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/pictures/average_image3.bmp'
                     cv2.imwrite(phase_path, avg_image)
                     units = ' (px)'
                     name = 'average 3'
@@ -2950,8 +2950,8 @@ class slmGUI(Ui_MainWindow):
         #     self.server_address = ('localhost', 51814)
         #     self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         #     self.server.bind(self.server_address)
-        #     env = 'C:/Users/RiceT/.conda/envs/slm/python.exe'
-        #     subprocess.Popen([env, 'C:/Users/RiceT/Documents/SLM_computation/Filrcamera/save_image.py'],
+        #     env = 'C:/Users/TrappedIonRiceDell1/.conda/envs/slm/python.exe'
+        #     subprocess.Popen([env, 'C:/Users/TrappedIonRiceDell1/Documents/SLM_computation/Filrcamera/save_image.py'],
         #                      shell=True)
         #     time.sleep((0.2))
         #     self.server.listen(1)
@@ -2985,16 +2985,16 @@ class slmGUI(Ui_MainWindow):
         # print('show', time.time() - t0)
         # data_ = data[4:]
         if item == 1:
-            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\image1'
+            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\image1'
             now = (datetime.datetime.now().strftime("d%d_h%H_m%M_s%S"))
         if item == 2:
-            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\image2'
+            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\image2'
             now = (datetime.datetime.now().strftime("d%d_h%H_m%M_s%S"))
         if item== 3:
-            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\image3'
+            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\image3'
             now = (datetime.datetime.now().strftime("d%d_h%H_m%M_s%S"))
         # if len(data_) > 1:
-        #     directory = r'C:\Users\RiceT\Documents\SLM_computation\Filr camera\pictures\correction1'
+        #     directory = runsettings.directory_SLM_computation + r'\Filr camera\pictures\correction1'
         #     now = data_
         # print('show', time.time() - t0)
 
@@ -3025,14 +3025,14 @@ class slmGUI(Ui_MainWindow):
         if self.checkbox_save_next_image.isChecked():
             self.flir.acquire_continue()
             now = (datetime.datetime.now().strftime("d%d_h%H_m%M_s%S"))
-            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\image_intensity'
+            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\image_intensity'
             name = f"image_{now}.bmp"
             path = os.path.join(directory, name)
 
         else:
             self.flir.acquire_continue()
             now = (datetime.datetime.now().strftime("d%d_h%H_m%M_s%S"))
-            directory = r'C:\Users\RiceT\Documents\SLM_computation\Filrcamera\pictures\image0'
+            directory = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\image0'
             name = f"image_{now}.bmp"
             path = os.path.join(directory, name)
         self.flir.file_save(path)

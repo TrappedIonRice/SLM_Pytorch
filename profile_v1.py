@@ -71,10 +71,11 @@ def temnm_Offcenter2Darb(slm, n=1, m=0, amp=1, w=(0.03, 0.1), x0=0.5, y0=0.5, an
     # Normalization as per your snippet
     w_norm = (w[0] / rows, w[1] / rows) #Original 20/01S/2026
     #w_norm = (np.sqrt(2)*0.25*w[0] / rows, np.sqrt(2)*0.25*w[1] / rows)# For gaussian
-    w_norm= (2/(2*pi*0.55*1024*0.5)*runsettings.waist_scale , 2/(2*pi*0.55*1024*0.5)*runsettings.waist_scale)
+    w_norm= (2/(2*pi*0.55*1024*0.5)*runsettings.waist_scale *w[0], 2/(2*pi*0.55*1024*0.5)*runsettings.waist_scale*w[1])
     # if w[0]>10:  Uncomment only for target_New
     #     w_norm = (2 / (2 * pi * 0.25 * 1024 * 0.5), 2 / (2 * pi * 0.25 * 1024 * 0.5))
     print("rows",rows,"cols",cols)
+    print("w_norm",w_norm,"x0",x0,"y0",y0)
 
     # 2. Define the ROI (Square of length 10 * w_norm[0] around x0, y0)
     half_len = 5.0 * w_norm[0]
@@ -250,6 +251,7 @@ def calibrated_temnm_Offcenter2Darb(slm, input_field, n=0, m=0,x0i=0.5,y0i=0.5,a
     slm_waist = np.array([inputbeam[2], inputbeam[3]])
     laserbeam = laserbeamsizefromimage(slm, cp.abs(propagate(input_field)).get() **2)
     image_waist = np.array([laserbeam[2], laserbeam[3]])
+    image_waist=np.array([1,1]) #Changed to accomodate the abberation orrection for waist
     print("image_waist",image_waist, "size", (propagate(input_field)).shape)
     print("slm_waist",slm_waist, "size", (input_field).shape)
 
@@ -461,11 +463,11 @@ class Profile:
 
 
         if uni_spacing:
-            for i in np.linspace(-0.5 * n * x_pitch + center[0], 0.5 * n * x_pitch + center[0], n, endpoint=True):
+            for i in np.linspace(-0.5 * (n-1) * x_pitch + center[0], 0.5 * (n-1) * x_pitch + center[0], n, endpoint=True):
                 if n <= 1:
                     i = 0
                 if m > 1:
-                    for j in np.linspace(-0.5 * m * y_pitch + center[1], 0.5 * m * y_pitch + center[1], m, endpoint=True):
+                    for j in np.linspace(-0.5 * (m-1) * y_pitch + center[1], 0.5 * (m-1) * y_pitch + center[1], m, endpoint=True):
                         # x = (i + 0.5) * size[0]
                         amp_profile[int((i + 0.5) * size[0]), int((j + 0.5) * size[1])] = 1.0
                         spots = np.append(spots, [[int((i + 0.5) * size[0]), int((j + 0.5) * size[1])]], axis=0)
@@ -807,7 +809,7 @@ class Profile:
         laserbeam_waisttem = laserbeamsizefromimage(slm, cp.abs(propagate(input_profile)).get() ** 2)
         image_waisttem = np.array([laserbeam_waisttem[2], laserbeam_waisttem[3]])
         #starts here for uniform spacing, independent of spot_array
-        if True:
+        if False:
             for i in np.linspace(-0.5 * n * x_pitch + center[0], 0.5 * n * x_pitch + center[0], n, endpoint=True):
                 if n <= 1:
                     i = 0
@@ -858,7 +860,7 @@ class Profile:
                 spots = double_spots
 
         # False starts here old method of defining in integer spot points
-        if False:
+        if True:
             for i in range(len(spots)):
     
                 # shift = np.array(np.array(shift) * arr.shape, dtype=np.uint)
@@ -948,6 +950,7 @@ class Profile:
         slm_waist_tem = np.array([inputbeam_tem[2], inputbeam_tem[3]])
         laserbeam_tem = laserbeamsizefromimage(slm, cp.abs(propagate(input_field)).get() ** 2)
         image_waist_tem = np.array([laserbeam_tem[2], laserbeam_tem[3]])
+        image_waist_tem=np.array([1,1]) #To accomodate for waist aberration corresction
 
         if tem:
             target_slm_field, transform = calibrated_temnm_Offcenter2Darb(slm, input_profile, n=0, m=1, x0i=0.5, y0i=0.5,angle=90)
@@ -987,14 +990,15 @@ class Profile:
         image_waisttem = np.array([laserbeam_waisttem[2], laserbeam_waisttem[3]])
         # starts here for uniform spacing, independent of spot_array
         if False:
-            for i in np.linspace(-0.5 * n * x_pitch + center[0], 0.5 * n * x_pitch + center[0], n, endpoint=True):
+            for i in np.linspace(-0.5 * (n-1) * x_pitch + center[0], 0.5 * (n-1) * x_pitch + center[0], n, endpoint=True):
                 if n <= 1:
-                    i = 0
+                    i = center[0]
                 if m > 1:
-                    for j in np.linspace(-0.5 * m * y_pitch + center[1], 0.5 * m * y_pitch + center[1], m,
+                    for j in np.linspace(-0.5 * (m-1) * y_pitch + center[1], 0.5 * (m-1) * y_pitch + center[1], m,
                                          endpoint=True):
                         x0ic = (i + 0.5);
-                        y0ic = (j + 0.5)
+                        y0ic = (j + 0.5);
+                        print("still here",x0ic, y0ic)
                         # target_slm_field, transform = calibrated_temnm_Offcenter(slm, input_profile, n=0, m=0, x0i=x0ic,
                         #                                                         y0i=y0ic)
                         if tem:
@@ -1043,6 +1047,7 @@ class Profile:
 
         # False starts here old method of defining in integer spot points
         if True:
+            print("testlen spots",len(spots))
             for i in range(len(spots)):
 
                 # shift = np.array(np.array(shift) * arr.shape, dtype=np.uint)
@@ -1092,13 +1097,13 @@ class Profile:
                         transform /= cp.max(transform)
                         transform_shifted = transform * half_amps
                         amp+=transform_shifted
-                        #print("spot_angle_i",spot_angles[i])
-                        #plt.imshow(cp.abs(half_amps).get())
-                        #plt.title("halfamps")
-                        #plt.show()
-                        #plt.imshow(cp.abs(transform_shifted).get())
-                        #plt.title("transform_shifted")
-                        #plt.show()
+                        # print("spot_angle_i",spot_angles[i])
+                        # plt.imshow(cp.abs(half_amps).get())
+                        # plt.title("halfamps")
+                        # plt.show()
+                        # plt.imshow(cp.abs(transform_shifted).get())
+                        # plt.title("transform_shifted")
+                        # plt.show()
 
 
 
@@ -1121,8 +1126,22 @@ class Profile:
                     # print(type(shift))
                     # print(type(amp))
                     # print(type(transform))
-                    amp += cp.array(np.roll(transform, (shift), axis=(0, 1))) * cp.array(
-                        amps[i] * np.exp(1j * phases[i]))
+                    # amp += cp.array(np.roll(transform, (shift), axis=(0, 1))) * cp.array(
+                    #     amps[i] * np.exp(1j * phases[i]))  #So far Aug 05 2026
+                    abberation_compensation_waistx=1#1.0+0.2-50*(spots[i][1] / size[1] -0.505)**2
+                    abberation_compensation_waisty =1# 1.0 +0.2 - 50 * (spots[i][0] / size[0] - 0.5) ** 2
+                    # transform = temnm_Offcenter2Darb(slm, n=0, m=0, w=image_waist_tem, x0=spots[i][1] / size[1],
+                    #                                  y0=spots[i][0] / size[0], angle=spot_angles[i])
+                    transform = temnm_Offcenter2Darb(slm, n=0, m=0, w=(abberation_compensation_waistx,abberation_compensation_waisty), x0=spots[i][1] / size[1],
+                                                     y0=spots[i][0] / size[0], angle=spot_angles[i])
+                    transform /= cp.max(transform)
+                    transform_shifted = transform * cp.array(amps[i] * np.exp(1j * phases[i]))
+                    amp += transform_shifted
+                    print("spot_angle_i", spot_angles[i])
+
+                    # plt.imshow(cp.abs(transform_shifted).get())
+                    # plt.title("transform_shifted")
+                    # plt.show()
 
                 # amp += Profile.input_gaussian(beam_size=waist, pos=(spots[i] / size - 0.5) * 2, size=size, amp=amps[i])
 
@@ -1138,7 +1157,7 @@ class Profile:
                 # print(len(transform[0]) / 2)
                 double_spots = []
                 separation = int(np.where(transform == np.max(transform))[1][0] - len(transform[0]) / 2)  # MDS added +1
-                separation = 2*1272*(2/(2*pi*0.55*1024*0.5))*runsettings.waist_scale
+                separation = 2*1272*(2/(2*pi*0.55*1024*0.5))*runsettings.waist_scale*np.sqrt(2)
                 print(separation)
                 if False: #Original: For TEM01 defining double positions for each lobe
                     for spot in spots:

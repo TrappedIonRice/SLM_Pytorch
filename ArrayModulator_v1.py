@@ -68,8 +68,8 @@ import PhaseExtraction_v1 as PhaseExtraction
 from PIL import Image
 from PIL import Image as im
 from slm_v1 import SLM,pad_border
-from skimage.restoration import unwrap_phase
-from sklearn.linear_model import  LinearRegression
+#from skimage.restoration import unwrap_phase
+#from sklearn.linear_model import  LinearRegression
 from profile_v1 import Profile, temnm, laserbeamsizefromimage, propagate
 
 # from InversePhase import inverse_phase
@@ -78,6 +78,7 @@ import tkinter.filedialog
 from skimage.transform import resize
 from slm_v1 import pad_border
 from scipy.ndimage import  rotate
+from pathlib import Path
 
 try:
     import cupy as cp
@@ -86,7 +87,7 @@ except ImportError:
     print("cupy not installed. Using numpy.")
 
 import runsettings
-
+import glob
 # matplotlib.use('QtAgg')
 
 
@@ -344,7 +345,7 @@ class ArrayModulator(slm.SLM):
 def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
 
     # mod = ArrayModulator(beams=1, correction_path='images/%dcorrwithLUT.bmp' % wavelength)
-    # target = mod.BMPToAmp(path=r'C:/Users/RiceT/Documents/FlirCamera/pictures/images.bmp', norm=True)
+    # target = mod.BMPToAmp(path=r'C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/images.bmp', norm=True)
     # #target = cp.array(resize(target, (40,20)))
     #
     # target =cp.array(slm.pad_border(target, (1024,1272)))
@@ -371,10 +372,13 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
 
 
 
-    phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_phase.txt'
+    # phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_phase.txt'
+    #phase_path = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction_phase.txt'
+    phase_path = runsettings.directory_SLM_computation + r'\Filrcamera\pictures\correction_phase.txt'
     correction = np.loadtxt(phase_path)
-    grady = mod.gradient(mod.beams[0][1], angle=0.12* np.pi / 180, axis=0, wavelength=wavelength) #1315#yangle=0.12 #yangle=0.1310 for expt
-    gradx = mod.gradient(mod.beams[0][1], angle=-0.12* np.pi / 180, axis=1, wavelength=wavelength)
+    grady = mod.gradient(mod.beams[0][1], angle=0.20* np.pi / 180, axis=0, wavelength=wavelength) #1315#yangle=0.12 #yangle=0.1310 for expt
+    gradx = mod.gradient(mod.beams[0][1], angle=-0.27* np.pi / 180, axis=1, wavelength=wavelength) #-0.12 original
+    only_gradmask_and_corr=False
     #temnm = mod.temnm(mod.beams[0][1], n=1, m=1)
     #temnm[25:,25:]=temnm[:-25,:-25]
     # gradx=rotate(g)
@@ -395,8 +399,8 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     # mod.add_phase(temnm)#/(0.7624614246165774+2.9579199832069927)*np.pi)
 
     #UNCOMMENT THIS FOR TEM01...?
-    #phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01.txt'
-    phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01_nocorr.txt'
+    #phase_path = r'runsettings.directory_SLM_computation + r'\images\tem01.txt'
+    # phase_path = r'runsettings.directory_SLM_computation + r'\images\tem01_nocorr.txt'
     phase_mask_tem01 = np.loadtxt(phase_path)
     phase_mask = np.loadtxt(phase_path)
     phase_mask_flip=np.flip(phase_mask, axis=1)
@@ -423,33 +427,14 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     # plt.show()
 
     scalepad=runsettings.scalepad_global
-    n =47
+    n =1 #4
     m =1
     amps = tuple(1. for i in range(n * m))#(1.0,1.0,1.0,1.0)#(1.0,0.0,1.0,0.0,1.0,1.0,1.0,0.0,1.0,1.0,1.0)#
-    double_amps_in = tuple([ampsx for ampsx in amps for _ in range(2)])#tuple(1. for i in range(2*n * m))
+    #amps=(1.0, 0.0, 1.0, 0.0, 1.0 ) # only middle ion bright, others dark.
+    #double_amps_in = tuple([ampsx for ampsx in amps for _ in range(2)])#tuple(1. for i in range(2*n * m))
 
 
-    #measuredlist=[0.8531352946187093, 0.7965294058557149, 1.0, 0.9056240544937595, 0.8748861876340257, 0.8663608365416605, 0.9077016560699039, 0.86821876752473, 0.8248658156979294, 0.6983283390477941, 0.7952508141701927, 0.8094983854616743, 0.7903482970284168, 0.7738481958912674, 0.7383839722443436, 0.7662365771419362, 0.8158100304795636, 0.8918589353756115, 0.8222871211876964, 0.884762054158084, 0.8601225786773393, 0.8454749030650931]
-    measuredlist2=[0.8439610534276695, 0.8626851866420653, 0.9613728815634297, 0.8370505772693067, 0.7976215386243023, 0.7272200261399524, 0.8843721890673902, 0.7652473563704804, 0.735611641461746, 0.7317724408134628, 0.8012249561715696, 0.7629908867703901, 0.8025495380864411, 0.7529227939179908, 0.7386182076182133, 0.7301463655860104, 0.752013749293335, 0.6495402011888561, 0.7528243337722006, 0.8312058753381851, 0.7873976033858706, 0.8973458487709258, 0.7661927633686102, 0.8498648331627829, 0.779744421004564, 0.8013437645578035, 0.742979402524888, 0.8582395512782881, 0.8139379027187258, 0.6992737028065514, 0.801688485269596, 0.7856274091932658, 0.6965259086905338, 0.8321128883454936, 0.7296815934611363, 0.8895954654670905, 0.7774336822075429, 0.7155252605492178, 0.7628928128729398, 0.8409767764320486, 0.7976417687116896, 0.818345119452142, 0.858139873417437, 0.8376485605442431, 0.7401180676302305, 0.7639943190791177, 0.7982869207817094, 0.7587283283759984, 0.8830673423736239, 0.7172435953416376, 0.8377015875391478, 0.7762430587338411, 0.768522637740328, 0.8061859746878641, 0.7640252118927628, 0.7380574894200498, 0.7777565842621581, 0.7588193263098969, 0.8063191867345135, 0.759482504342968, 0.7846042541858476, 0.771394305154472, 0.7102110341778709, 0.8088158261062368, 0.7278822463101617, 0.776426687124368, 0.8073335466572992, 0.8204337677294465, 0.7201278842918146, 0.7554826942550525, 0.6793144260679339, 0.9063384357617273, 0.765336863748648, 0.8392399843839916, 0.9568488370641683, 0.7450934670064467, 0.7733809255562966, 0.9085178448806229, 0.6932162200604267, 0.76232149712717, 0.711310423805241, 0.7267880603686045, 0.8047463431070357, 0.7061712782836904, 0.783711382495797, 0.750361909032542, 0.8081694332017018, 0.8182994964326, 0.6923650812232011, 0.734839549446165, 0.7967240573560702, 0.8154977507268304, 0.7310035723954929, 0.8584152227436842, 0.7400364511106677, 0.7982066352029915, 0.7762824164883824, 0.7968486240276771, 0.8178517370893573, 0.7082998275970521, 0.7808696705812836, 0.7024927753390086, 0.7287571799946306, 0.7386484691848404, 0.8311235423362958, 0.6726372634638207, 0.8145191096032367, 0.6905071755479925, 0.6848079497274668, 0.8279279919153429, 0.7442369244532655, 0.7458940752793893, 0.7422680897998716, 0.8063515173809087, 0.7861232143450657, 0.7789889231700932, 0.6584021067313115, 0.7787443867176093, 0.6986115771227788, 0.6940272622710506, 0.6279715480370148, 1.0, 0.6576487173578844, 0.7821989463729385, 0.7368474207554861, 0.7822788130104631, 0.7649368437271488, 0.7513093912685785, 0.7460723477959191, 0.7025831156042928, 0.7014735769641653, 0.7726481653506901, 0.7693982518191721, 0.7088651934681977, 0.7648572581058583, 0.8473189780255985, 0.7907797934213189, 0.7988951494438092, 0.7933204204157108, 0.8060992307628103, 0.7799575742174109, 0.789795583764972, 0.7964472096231661, 0.8673222733320495, 0.7534371615561765, 0.8362361387604655, 0.6783262142589426, 0.7536409965259158, 0.6869144791315301, 0.9253971853296549, 0.7441980009515781, 0.8254703727303171, 0.7576287690489834, 0.8670919681225449, 0.8794487189459809, 0.7058151005154403, 0.8898121350851149, 0.758124885589459, 0.6806792451823834, 0.8057663443701517, 0.7511736033868067, 0.8063742398151694, 0.793153796913961, 0.8443779398679583, 0.7976287608132413, 0.7755789600480689, 0.9062314922166134, 0.8174579294245384, 0.7541289829308583, 0.7290278480513168, 0.7949886384377413, 0.7572856185196428, 0.7709241096019154, 0.8312691171175512, 0.8025606275096362, 0.8248655195348354, 0.8392191252268959, 0.7628140141638818, 0.7931916314187635, 0.7772359672801299, 0.7899423245630034, 0.7538989010999313, 0.8172527861219311, 0.7606822920087257, 0.7816133188164227, 0.7985252590534052, 0.8184958858804244, 0.792578997496643, 0.7647720756818502, 0.6848843527934926, 0.7599594743602001, 0.7490743439570227, 0.7760391276980807, 0.7889003685488903, 0.7876878927124881, 0.8121305022911635, 0.698283096960008, 0.8313359484901781, 0.7653687554185183, 0.7223620810740264, 0.8792943734798431, 0.8393211761202118, 0.7818317226349316, 0.8144480380898957, 0.793939947000011, 0.6868367137597653, 0.7548384072698431, 0.7306181375587661, 0.7781845756408456, 0.7638881732894014, 0.7648141295780039, 0.8413434120345797, 0.7495226109151425, 0.7765700092287351, 0.8347730490322277, 0.7973920237333181, 0.8171586303888663, 0.8109799011070817, 0.7625128272276072, 0.862117368377655, 0.8705922087358537, 0.8275677513551134, 0.7667924313209972, 0.7776400007909217, 0.7415450204326322, 0.7767376315032826, 0.778040035843423, 0.647438690808642, 0.8059137749511315, 0.7539099977102225, 0.6769877983314755, 0.8059237605757764, 0.7156089771765973, 0.7787934420879995, 0.6940121861912185, 0.8625199950422447, 0.8168857444394598, 0.710787190739411, 0.7839255957729706, 0.7528756989906588, 0.7670883104325101, 0.8241212441604612]
 
-    measuredlist=[0.632504727316183, 0.74221263238833, 0.5472931407458179, 0.720769271636983, 0.7103826608091045, 0.6874895119086634, 0.6597922788670774, 0.7024769966398199, 0.7171996578487929, 0.7509112587714439, 0.8577608799674568, 0.7129537997538127, 0.7477033540436261, 0.7343727346167244, 0.7372792809451528, 0.6466667101362992, 0.6724981442980958, 0.6850164885301279, 0.6576188996624474, 0.590525636503704, 0.6138496926394443, 0.6692234636683427, 0.6734942581806581, 0.7942318080787671, 0.5786732055821474, 0.8191456365989699, 0.7373784866467074, 0.832085111645632, 0.7459095012053728, 0.8726734189313937, 0.6978954965956659, 0.7770853513641811, 0.8432537675833632, 0.7710342181052521, 0.8157105621000523, 0.6757334330890911, 0.6680278236915477, 0.7498299461114295, 0.7694737026977996, 0.6863904419968377, 0.8346654022293726, 0.6075989763210845, 0.6993707284576504, 0.6635328512001768, 0.6447627057220283, 0.7281677081984262, 0.5837411271099842, 0.8159712760913391, 0.6666824203302492, 0.8096972696765636, 0.7768008115651236, 0.823372676023289, 0.7326946800068251, 0.9116306290326215, 0.7651642876137646, 0.8000976791904257, 0.7086894916281453, 0.7121712473945566, 0.7426854710639262, 0.748249861246241, 0.7920276388272526, 0.6586993667663767, 0.7433461745036558, 0.6143475140137798, 0.744205419304656, 0.6849788743809461, 0.7160019449918611, 0.7317027238666645, 0.6302841954095478, 0.7835140701034238, 0.675247997219633, 0.8199529171205944, 0.78594499953211, 0.8319351853045408, 0.6961292774918736, 0.7009837320677007, 0.6851665289555271, 0.7142187570266799, 0.773868298323742, 0.808087643637054, 0.7667309867528952, 0.7468582060282518, 0.7193181448134423, 0.7868628782571436, 0.6852656346034632, 0.6207231514781667, 0.6563039654283187, 0.7862897898487802, 0.7402940364013737, 0.7502918672478149, 0.7162773361258393, 0.8110098420615568, 0.7157570991824932, 0.7326649749630004, 0.7382644072824486, 0.6656003858891105, 0.7420623156941532, 0.7299465024068958, 0.7701283892866504, 0.8028096640729515, 0.7659050355645056, 0.7387809669914372, 0.6992717607376288, 0.7530587955510576, 0.7481006469321604, 0.758881270955608, 0.7653848814366017, 0.6548473341483544, 0.6686849365818643, 0.7238444147813384, 0.6838659781605613, 0.7525695196902161, 0.7170317507895054, 0.7753345312839339, 0.7254222969855986, 0.8620006851560853, 0.6850194034202574, 0.7533235254779244, 0.8370171964539761, 0.6770952513724702, 0.7323089102251403, 0.624930870979584, 0.8085918401027767, 0.8033647585022814, 0.8430789060326486, 0.6883108589548097, 0.7646393100796411, 0.8301790754618856, 0.7499930226257013, 0.6767888219339816, 0.7685635090816075, 0.7255032769286154, 0.7295752367000536, 0.7631255714012278, 0.7073686753885252, 0.795792754427735, 0.7088561174985516, 0.8121641745570493, 0.693324705922316, 0.7211164657420711, 0.7619804916338307, 0.8730541953314872, 0.8413745143048068, 0.7798597111419171, 0.7279721054365978, 0.7514717543756976, 0.7524277816517736, 0.7778964021159943, 0.7738898009489442, 0.8324000968705971, 0.7605994099864103, 0.7395273152564691, 0.68522059639375, 0.7004640926730887, 0.670378309387473, 0.776780715147842, 0.6219314606309502, 0.8243986092232166, 0.6303325549040807, 0.7821819102900314, 0.7181924102328597, 0.7811686762193608, 0.7459229555202183, 0.8589145688716736, 0.8602603763838317, 0.7644246593773374, 0.813393869497995, 0.7932293722026679, 0.802981505952565, 0.6995499059817331, 0.7676601653206244, 0.7445435104764601, 0.7660061685295165, 0.6378001887207059, 0.7637546770533364, 0.7160434088045327, 0.6860636210784584, 0.7332832476846994, 0.6324384179342322, 0.8411079997538832, 0.7044412231496331, 0.8739636354099238, 0.723643199519024, 0.8079766818260546, 0.7871780501331185, 0.7312210499177713, 0.913853413468334, 0.8756973426916782, 0.8728708697121148, 0.7721965144484135, 0.7022348943714777, 0.7541931294428097, 0.818120886016197, 0.8517241890891958, 0.7755565189257413, 0.6625593861687018, 0.7655791154180073, 0.6672534825840446, 0.7167111209297253, 0.8278913053759407, 0.5752027450116548, 0.7897924817001141, 0.7019637640168679, 0.9128484556040659, 0.7868826079953832, 0.7365625176843668, 0.6898088627590386, 0.878924213446765, 0.9029162525474673, 0.8913215035826677, 0.8980777015606233, 0.7935783451381668, 0.7240257419434458, 0.7136932387805015, 0.7888267819963285, 0.7147869348638384, 0.8175036421098715, 0.6779523161064486, 0.6850350663256842, 0.7338839807215004, 0.7849337867230668, 0.893726476873141, 0.6210648014049747, 0.80741837017956, 0.7316639822180279, 0.8352689587495369, 0.8216252152035795, 0.8382216915945585, 0.8017623214151004, 1.0, 0.8650022626065533, 0.8200485177790263, 0.9125833894218249, 0.7198008514750206, 0.758003313069323, 0.734246447041459, 0.7385023933282259, 0.7882844150755184, 0.7886925324025916, 0.6916434081299881, 0.7876019092412673, 0.7599322495935638]
-
-    # measuredlist = (np.array(measuredlist)*np.array(measuredlist2))**0.5#*np.array(measuredlist3))**0.5#*np.array(measuredlist3))**0.5
-    if False: #measuredlist feedback
-        measuredlist=(measuredlist/np.max(measuredlist))**1#np.sqrt
-        #measuredlist=(np.array(measuredlist/np.max(measuredlist))**0.5)*(np.array(measuredlist2/np.max(measuredlist2))**0.5)
-        print(len(measuredlist),"measurelist",measuredlist)
-        double_amps_in = (1/measuredlist)
-        double_amps_in=double_amps_in/np.max(double_amps_in)
-        #double_amps_in = double_amps_in[::-1] #flip horixontally only
-        double_amps_in_mirrored = []
-        #
-        for i in range(0, len(double_amps_in), 2*n):
-            double_amps_in_mirrored.extend(double_amps_in[i:i + 2*n][::-1])
-        double_amps_in=double_amps_in_mirrored
-        # amps=double_amps_in_mirrored
-
-    double_amps_in=tuple(double_amps_in)
 
     #amps=(1.0,)*11
     #amps=(1.0,1.0,1.0,1.0,1.0)
@@ -462,8 +447,10 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     #     for jjj in range(m):
     #         phases[jjj*n+iii]=6.5*((((iii+0.5)/n)-0.5)**2 +((jjj+0.5)/m-0.5)**2)
     print("phases0",phases)
-    tem01_0=True
-    x_pitch0=0.0089
+    tem01_0=False#True
+    x_pitch0=0.0089 # may have to trim later
+    x_pitch0=0.0055 # old sys 2 0.0068. 0.003, 0.0055( works to match Raman) ( later values are newer)
+    #x_pitch0 = 0.0063
 
     #phases = (0.5,0.4,0.3,0.2,0.1,0.0,0.1,0.2,0.3,0.4,0.5)
     #phases=(0.0,0.0,)*24+(0.0,)
@@ -473,11 +460,81 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     # amps=list([np.float64(0.04586915924100187), np.float64(0.0737158218486801), np.float64(1.7255334088047454e-10), np.float64(0.0737158216568236), np.float64(0.14632802444498844), np.float64(0.14632802425786048), np.float64(0.07047564049967088), np.float64(0.1397719421223463), np.float64(0.13977194218107503), np.float64(0.14632802458290414), np.float64(0.07047564062225226), np.float64(0.103546642494763), np.float64(0.18046184232764007), np.float64(0.08095818482328287), np.float64(0.1804618424515428), np.float64(0.045869159295217454), np.float64(0.15047272603228182), np.float64(0.07047564043911027), np.float64(0.10354664249300768), np.float64(0.13977194212480343), np.float64(0.10354664243863597), np.float64(0.22106155008059786), np.float64(0.2210615499737462), np.float64(0.18046184223521522), np.float64(0.14632802447973453), np.float64(0.08095818476931864), np.float64(0.10820207063869679), np.float64(0.10820207064264364), np.float64(0.07371582188085807), np.float64(0.22106155006897915), np.float64(0.07371582175215913), np.float64(0.1397719422967504), np.float64(0.1440219418384983), np.float64(0.14402194185591574), np.float64(0.2227630594106869), np.float64(0.22276305958322093), np.float64(0.07047564027944482), np.float64(0.15810114977095455), np.float64(0.15810114993268837), np.float64(0.15047272594532118), np.float64(0.15810114986479626), np.float64(0.10354664247580193), np.float64(0.22106154998023197), np.float64(0.15810114991473614), np.float64(0.18046184244441152), np.float64(0.22276305947986294), np.float64(0.22276305954786257)])
     # amps=amps/np.max(amps)
 
-    n, m, amps, phases, uni_spacing, x_pitch0, tem01_0,xarblist0, yarblist0, anglearblist0 = choose_pattern("tem00_47_1_u",scalepad)
-    #uni_spacing, x_pitch0, tem01_0, xarblist0, yarblist0, anglearblist0 = True,0.0068,True,None,None,None
+    n, m, amps, phases, uni_spacing, x_pitch0, tem01_0,xarblist0, yarblist0, anglearblist0 = choose_pattern("tem00_31_31_u",scalepad)
+    #uni_spacing, x_pitch0, tem01_0, xarblist0, yarblist0, anglearblist0 = True, x_pitch0,False,None,None,None
+    print("amps shape1", len(amps))
+    double_amps_in = tuple([ampsx for ampsx in amps for _ in range(2)])  #
+    print("double_amps_in1", len(double_amps_in))
+
+    #search_pattern = r"runsettings.directory_SLM_computation + r'\measuredlist\measuredlist*.npz"
+    search_pattern =str( Path(runsettings.directory_SLM_computation) / "measuredlist" / "measuredlist*.npz")
+    print("search_pattern", search_pattern)
+
+    # Get a sorted list of all matching file paths
+    file_list = sorted(glob.glob(search_pattern))
+
+    # Load each file as an element in a list
+    measuredlist_full = [np.load(file)['intensity'] for file in file_list]
+    print("measuredlist_full",(measuredlist_full))
+
+    measuredlist_feedback=True
+    if measuredlist_feedback: #measuredlist feedback
+        #measuredlist=(measuredlist/np.max(measuredlist))**0.25#np.sqrt
+        #measuredlist=(np.array(measuredlist/np.max(measuredlist))**0.25)*(np.array(measuredlist2/np.max(measuredlist2))**0.25)
+        measuredlist=np.ones((n*m) if not tem01_0 else (2*n*m))
+        for measuredlist_temp in measuredlist_full:
+            measuredlist=measuredlist*(np.array(measuredlist_temp / np.mean(measuredlist_temp)) ** 0.25
+                                       )
+
+        print(len(measuredlist),"measurelist",measuredlist)
+        if tem01_0:
+            double_amps_in = (double_amps_in / measuredlist)
+        else:
+            double_amps_in = (amps / measuredlist)
+        #double_amps_in = (1/measuredlist)
+        double_amps_in=double_amps_in/np.max(double_amps_in)
+        #double_amps_in = double_amps_in[::-1] #flip horixontally only
+        double_amps_in_mirrored = []
+
+        # for i in range(0, len(double_amps_in), (2*n if tem01_0 else n)):
+        #     double_amps_in_mirrored.extend(double_amps_in[i:i + (2*n if tem01_0 else n)][::-1])
+        # double_amps_in=double_amps_in_mirrored
+
+        block_size = 2 * n if tem01_0 else n
+        # for i in range(0, len(double_amps_in), (block_size)):
+        #     double_amps_in_mirrored.extend(double_amps_in[len(double_amps_in)-n-i:len(double_amps_in)-n-i + (block_size)][::-1])
+
+        ###Below 3 lines worked well for gaussian
+        # for i in range(0, len(double_amps_in), (block_size)):
+        #     double_amps_in_mirrored.extend(double_amps_in[len(double_amps_in)-(block_size)-i:len(double_amps_in)-i][::-1])
+        # double_amps_in=double_amps_in_mirrored
+        block_size = 2 * n if tem01_0 else n
+
+        # 1. Slice into forward blocks and reverse the order of elements inside each block
+        # 2. Reverse the order of the blocks themselves [::-1] at the end
+        double_amps_in_mirrored = [
+            double_amps_in[i: i + block_size][::-1]
+            for i in range(0, len(double_amps_in), block_size)
+        ][::-1]
+
+        # Flatten the list back down safely
+        double_amps_in = [item for block in double_amps_in_mirrored for item in block]
+
+        #amps=double_amps_in_mirrored  #check!!!!!!
+
+    double_amps_in=tuple(double_amps_in)
+
 
     #double_amps_in=np.repeat(np.array(amps), 2)
     double_amps_in=tuple(double_amps_in)
+    if tem01_0==False and measuredlist_feedback: #Uncomment for expt feedback of gaussian beams
+        amps=tuple(double_amps_in)
+    if tem01_0==True and measuredlist_feedback==True:
+        amps=tuple(double_amps_in)
+    print("amps shape",len(amps))
+    print("amps",amps)
+    print("doubleamps",double_amps_in)
+
     amps=list(amps)
     phases=list(phases)
     #for kk in range(0,n*m):
@@ -500,7 +557,7 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
         c = 2*(-4.482766e-06)#(0.1027)*(1/24.0)*  # -3.9478368e-06#-3.893853882563125e-06A(1/scalepad**3)*
         d = 1672#mds oct1672 #1628#1573.195#1672  # 1712 #1672 original
         a=1.15*np.pi/(1272*scalepad)*curvature_num*1.02#*0.6#1.2
-        c=1.49*np.pi/(1024*scalepad)*curvature_num#*0.6 #1.49
+        c=1.49*np.pi/(1024*scalepad)*curvature_num*0.978 #0.972 used for sys2 expt  #1.49
         d_off=0
         b_off=0
         target_phase = np.zeros((int(1024*scalepad), int(1272*scalepad)))
@@ -511,8 +568,8 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
                 #            (j - 635.5) * 41.045*1.13 + 1937.23 - b) ** 2 / 2  # MDS
                 #target_phase[i][j] = c * ((i - 511) * 53.651 + 1672 - d) ** 2 / 2 + a * (
                 #       (j - 635.5) * 41.4555 + 2070 - b) ** 2 / 2  # MDS Enter center of the beam here
-                target_phase[i][j] = c * (i - ((1024-d_off)*scalepad/2.0)+0.5)** 2 + a *(j - ((1272-b_off)*scalepad/2.0)+0.5) ** 2  # MDS Enter center of the beam here
-
+                target_phase[i][j] = c * (i - ((1024-d_off)*scalepad/2.0)-0)** 2 + a *(j - ((1272-b_off)*scalepad/2.0)-0) ** 2  # MDS Enter center of the beam here
+                ## Was +0.5 in the previous line
         #To simulate bowman paper grid's LG00 type phase pattern:
         # for i in range(int(1024 * scalepad)):
         #     for j in range(int(1272 * scalepad)):
@@ -529,29 +586,36 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
 
         # MDS
         plotshow = runsettings.plot_images_global
-        wu_1x4_full = mod.wu_algorithm2D(n=n, m=m,phase_tem_compensation=np.exp(1j * np.array(target_phase)),#MDS
-                                    M=60, name='wu_1x4', amps=amps, amps_guess=amps_guess, phases=phases,
-                                    x_pitch=x_pitch0, plots=plotshow,
-                                    input_profile=profile.Profile.input_gaussian(beam_size=(0.45*(1/scalepad), 0.45*(1/scalepad)),
-                                                                                 size=(int(1024*scalepad), int(1272*scalepad))), phase_memory=True,
-                                    tem01=tem01_0,res_factor=scalepad, uni_spacing=uni_spacing,
-                                    xarblist0=xarblist0, yarblist0=yarblist0, anglearblist0=anglearblist0,double_amps_in=double_amps_in)
-        # # runsettings.learning_rate=0.02
-        # mod2 = ArrayModulator(beams=1, correction_path='images/%dcorrwithLUT.bmp' % wavelength)
-        # wu_1x4_full = mod2.wu_algorithm2D(n=n, m=m,phase_tem_compensation=np.exp(1j * np.array(target_phase)*0.0),#MDS
-        #                             M=60, name='wu_1x4', amps=amps, amps_guess=amps_guess, phases=phases,
-        #                             x_pitch=x_pitch0, plots=plotshow,
-        #                             input_profile=profile.Profile.input_gaussian(beam_size=(0.55*(1/scalepad), 0.55*(1/scalepad)),
-        #                                                                          size=(int(1024*scalepad), int(1272*scalepad))), phase_memory=True,
-        #                             tem01=tem01_0,res_factor=scalepad, uni_spacing=uni_spacing,
-        #                             xarblist0=xarblist0, yarblist0=yarblist0, anglearblist0=anglearblist0,double_amps_in=double_amps_in,start_phase=wu_1x4_full1 )
+        if not only_gradmask_and_corr:
+            wu_1x4_full = mod.wu_algorithm2D(n=n, m=m,phase_tem_compensation=np.exp(1j * np.array(target_phase)),#MDS
+                                        M=40, name='wu_1x4', amps=amps, amps_guess=amps_guess, phases=phases,
+                                        x_pitch=x_pitch0, plots=plotshow,
+                                        input_profile=profile.Profile.input_gaussian(beam_size=(0.45*(1/scalepad), 0.45*(1/scalepad)),
+                                                                                     size=(int(1024*scalepad), int(1272*scalepad))), phase_memory=True,
+                                        tem01=tem01_0,res_factor=scalepad, uni_spacing=uni_spacing,
+                                        xarblist0=xarblist0, yarblist0=yarblist0, anglearblist0=anglearblist0,double_amps_in=double_amps_in)
+            # # runsettings.learning_rate=0.02
+            # mod2 = ArrayModulator(beams=1, correction_path='images/%dcorrwithLUT.bmp' % wavelength)
+            # wu_1x4_full = mod2.wu_algorithm2D(n=n, m=m,phase_tem_compensation=np.exp(1j * np.array(target_phase)*0.0),#MDS
+            #                             M=60, name='wu_1x4', amps=amps, amps_guess=amps_guess, phases=phases,
+            #                             x_pitch=x_pitch0, plots=plotshow,
+            #                             input_profile=profile.Profile.input_gaussian(beam_size=(0.55*(1/scalepad), 0.55*(1/scalepad)),
+            #                                                                          size=(int(1024*scalepad), int(1272*scalepad))), phase_memory=True,
+            #                             tem01=tem01_0,res_factor=scalepad, uni_spacing=uni_spacing,
+            #                             xarblist0=xarblist0, yarblist0=yarblist0, anglearblist0=anglearblist0,double_amps_in=double_amps_in,start_phase=wu_1x4_full1 )
 
-    #wu_1x4_full=np.zeros((int(1024*scalepad), int(1272*scalepad)))
+    # wu_1x4_full=np.zeros((int(1024*scalepad), int(1272*scalepad))) # 26/05/13 gt: for single deflected beam
     #wu_1x4_full=phase_rotate(wu_1x4_full,1/180*np.pi)
     #wu_1x4_full[25:,25:]=wu_1x4_full[:-25,:-25]
-    np.save(r'curvature_plots/curvature.npy', global_variables.curvature)
-    np.save(r'curvature_plots/final_eff_curvature.npy',global_variables.final_eff_curvature)
-    np.save(r'curvature_plots/final_ion_fidelity_curvature.npy', global_variables.final_ion_fidelity_curvature)
+
+
+    if only_gradmask_and_corr:
+        wu_1x4_full=np.load(runsettings.directory_SLM_computation + r'\images\wu_1x4_full.npy')
+    ##Not saving for now.
+    np.save(runsettings.directory_SLM_computation + r'\images\wu_1x4_full.npy', wu_1x4_full)
+    # np.save(r'curvature_plots/curvature.npy', global_variables.curvature)
+    # np.save(r'curvature_plots/final_eff_curvature.npy',global_variables.final_eff_curvature)
+    # np.save(r'curvature_plots/final_ion_fidelity_curvature.npy', global_variables.final_ion_fidelity_curvature)
 
     if plotshow:
         plt.imshow(np.mod(wu_1x4_full+np.pi,2*np.pi))
@@ -570,18 +634,18 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
         plt.title('SLM Phase')
         plt.colorbar(label ='Phase (radian)')
         plt.show()
-    phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\phaseTest.txt'
+    phase_path = runsettings.directory_SLM_computation + r'\images\phaseTest.txt'
     np.savetxt(phase_path, wu_1x4[:1024,:1024])  #REMOVE THE CLIPPING
     wu_1x4_phase=np.mod(wu_1x4+np.pi,2*np.pi)*255/(2*np.pi)
     total_phase = np.mod(mod.phase + np.pi, 2 * np.pi) * 255 / (2 * np.pi)
     phase_path_p = r'Z:\Lab Rice\Experimental Projects\SLM\sample images\wu1x4_phase.bmp'
     cv2.imwrite(phase_path_p,wu_1x4_phase) #total_phase)#
-    phase_path_p= r'C:\Python programs\slm_comp_pytorch\images\wu1x4_phase.bmp'
-    cv2.imwrite(phase_path_p,total_phase)#wu_1x4_phase)
+    phase_path_p= runsettings.directory_SLM_Pytorch + r'\images\wu1x4_phase.bmp'
+    cv2.imwrite(phase_path_p,wu_1x4_phase) #total_phase)
     wu_1x4_intensity=(profile.Profile.input_gaussian(beam_size=(0.4, 0.4),size=(1024, 1272)))*255
     phase_path_i = r'Z:\Lab Rice\Experimental Projects\SLM\sample images\wu1x4_intensity.bmp'
     cv2.imwrite(phase_path_i,wu_1x4_intensity)
-    phase_path_i = r'C:\Python programs\slm_comp_pytorch\images\wu1x4_intensity.bmp'
+    phase_path_i = runsettings.directory_SLM_Pytorch + r'\images\wu1x4_intensity.bmp'
     cv2.imwrite(phase_path_i,wu_1x4_intensity)
     if plotshow:
         plt.imshow(mod.phase)
@@ -604,7 +668,7 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
         axs[1].plot((1/(2*np.pi))*np.angle(fftout[rowfftmax,:]))
         axs[1].set_title("angle")
         plt.show()
-
+    # Uncomment for correction
     area_abb=720#1022#720
     patch_size_abb=25#15
     num_patch_abb=28#40#48
@@ -619,15 +683,15 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
             else:
                 for m in range(patch_size_abb):
                     for n in range(patch_size_abb):
-                        matrix_correction[patch_size_abb * i + m][patch_size_abb * j + n] = correction[i][j]
+                        matrix_correction[patch_size_abb * i + m][patch_size_abb * j + n] = correction[i][j] # 26/05/13 gt: multiply by zero for Hamamatsu corr (see also below at mod.phase)
 
     np.save('testing_tem01_4_4_u.npy', mod.phase)
     mod.phase = np.load('testing_tem01_4_4_u.npy')
 
-
+    # Uncomment for correction
     if True: #Original 06 Feb, choosing only the central part
         mod.phase = mod.phase + slm.pad_border(matrix_correction, (1024, 1272))  #UNCOMMENT FOR CORRECTION
-        # phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01.txt'
+        # phase_path = runsettings.directory_SLM_computation + r'\images\tem01.txt'
         # np.savetxt(phase_path,mod.phase)
         area_size=(720,720)#(720,720)(1022,1022)#
         mod.phase = mod.phase[512 - int(area_size[0] / 2):512 + int(area_size[0] / 2),
@@ -649,15 +713,15 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     #                       :]
 
     # mod.phase=mod.phase[212:812,336:936]
-    # phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01.txt'
+    # phase_path = runsettings.directory_SLM_computation + r'\images\tem01.txt'
     # mod.phase = slm.pad_border(mod.phase, (1024,1272))
     # np.savetxt(phase_path, mod.phase)
 
-    mod.phaseToBMP(mod.phase, name='phase_mask0_0', color=False, correction=False, wavelength=411)
+    mod.phaseToBMP(mod.phase, name='phase_mask0_0', color=False, correction=False, wavelength=411) # 26/05/13 gt: set correction to True for HM correction
     mod.phase = mod.phase + 120 / 180 * np.pi
-    mod.phaseToBMP(mod.phase, name='phase_mask0_120', color=False, correction=False, wavelength=411)
+    mod.phaseToBMP(mod.phase, name='phase_mask0_120', color=False, correction=False, wavelength=411) # same as above
     mod.phase = mod.phase + 120 / 180 * np.pi
-    mod.phaseToBMP(mod.phase, name='phase_mask0_240', color=False, correction=False, wavelength=411)
+    mod.phaseToBMP(mod.phase, name='phase_mask0_240', color=False, correction=False, wavelength=411) # same as above
     if plotshow:
         plt.imshow(mod.phase)
         plt.title("is it")
@@ -686,7 +750,7 @@ def create_phase_padding(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1
     size_x_l=1024*1
     size_y_l=1272*1
     # mod = ArrayModulator(beams=1, correction_path='images/%dcorrwithLUT.bmp' % wavelength)
-    # target = mod.BMPToAmp(path=r'C:/Users/RiceT/Documents/FlirCamera/pictures/images.bmp', norm=True)
+    # target = mod.BMPToAmp(path=r'C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/images.bmp', norm=True)
     # #target = cp.array(resize(target, (40,20)))
     #
     # target =cp.array(slm.pad_border(target, (1024,1272)))
@@ -713,7 +777,7 @@ def create_phase_padding(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1
 
 
 
-    phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\correction_phase.txt'
+    phase_path = runsettings.directory_FlirCamera + r'\pictures\correction_phase.txt'
     correction = np.loadtxt(phase_path)
     grady = mod.gradient(mod.beams[0][1], angle=0.00* np.pi / 180, axis=0, wavelength=wavelength) #yangle=0.12
     gradx = mod.gradient(mod.beams[0][1], angle=0.00* np.pi / 180, axis=1, wavelength=wavelength)
@@ -725,7 +789,7 @@ def create_phase_padding(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1
     # mod.add_phase(temnm)#/(0.7624614246165774+2.9579199832069927)*np.pi)
 
     #UNCOMMENT THIS FOR TEM01...?
-    #phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01.txt'
+    #phase_path = runsettings.directory_SLM_computation + r'\images\tem01.txt'
     #phase_mask_tem01 = np.loadtxt(phase_path)
     #mod.add_phase(np.array(phase_mask_tem01))
 
@@ -766,7 +830,7 @@ def create_phase_padding(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1
     # wu_1x4=phase_rotate(wu_1x4,6.5/180*np.pi)
     plt.show()
     mod.add_phase(wu_1x4)
-    phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\phaseTest.txt'
+    phase_path = runsettings.directory_SLM_computation + r'\images\phaseTest.txt'
     np.savetxt(phase_path, wu_1x4)
     wu_1x4_phase=np.mod(wu_1x4+np.pi,2*np.pi)*255/(2*np.pi)
     phase_path_p = r'Z:\Lab Rice\Experimental Projects\SLM\sample images\wu1x4_phase.bmp'
@@ -791,7 +855,7 @@ def create_phase_padding(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1
 
 
     mod.phase = mod.phase + slm.pad_border(matrix_correction, (1024, 1272))
-    # phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01.txt'
+    # phase_path = runsettings.directory_SLM_computation + r'\images\tem01.txt'
     # np.savetxt(phase_path,mod.phase)
     area_size=(720,720)
     mod.phase = mod.phase[int(size_x_l/2) - int(area_size[0] / 2):int(size_x_l/2) + int(area_size[0] / 2),
@@ -812,7 +876,7 @@ def create_phase_padding(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1
     #                       :]
 
     # mod.phase=mod.phase[212:812,336:936]
-    # phase_path = r'C:\Users\RiceT\Documents\SLM_computation\images\tem01.txt'
+    # phase_path = runsettings.directory_SLM_computation + r'\images\tem01.txt'
     # mod.phase = slm.pad_border(mod.phase, (1024,1272))
     # np.savetxt(phase_path, mod.phase)
 
@@ -1280,7 +1344,33 @@ def choose_pattern(patternIn,scalepad):
         xarblist = np.multiply(0.0000, np.zeros(np.size(yarblist)))
         anglearblist = np.zeros(np.size(xarblist))+90.0
 
+    if patternIn == "tem00_31_31_u":
+        n = 11;
+        m = 11;
+        amps =tuple(1. for i in range(n * m))
+        #amps=tuple(1*np.mod(i,2.0) for i in range(n * m))
+        phases = tuple(0. for i in range(n * m))#tuple(0.5*np.mod(i,2.0) for i in range(n * m))#tuple(0.5*np.mod(i,2.0) for i in range(n * m))###tuple(0.5*np.mod((i % m)//5,2.0) for i in range(n * m))#
+        uni_spacing = False #Setting this to true defaults to integrer spot spacing as of now
+        x_pitch0 =0.0055*np.sqrt(2) #0.0055
+        tem01_0 = True
+        print("initial phase",phases)
+        print("initial amps",amps)
+        # if tem01_0:
+        #     amps=[item for item in amps for _ in range(2)]
+        #xarblist = (np.linspace(-0.5 * (n-1) * x_pitch0 , 0.5 * (n-1) * x_pitch0 , n, endpoint=True))
+        #yarblist = (np.linspace(-0.5 * (m-1) * x_pitch0 , 0.5 * (m-1) * x_pitch0 , m, endpoint=True))
+        yarblist,xarblist = np.meshgrid((np.linspace(-0.5 * (n-1) * x_pitch0 , 0.5 * (n-1) * x_pitch0 , n, endpoint=True)),(np.linspace(-0.5 * (m-1) * x_pitch0 , 0.5 * (m-1) * x_pitch0 , m, endpoint=True)))
+
+        #For xarb to be shifted by 3 pixels
+        #yarblist, xarblist = np.meshgrid((np.linspace(-0.5 * (n - 1+3) * x_pitch0, 0.5 * (n - 1+3) * x_pitch0, n, endpoint=True)),(np.linspace(-0.5 * (m - 1) * x_pitch0, 0.5 * (m - 1) * x_pitch0, m, endpoint=True)))
+
+        xarblist=xarblist.ravel(); yarblist=yarblist.ravel()
+        print(len(xarblist),len(yarblist),"lenxardbb",xarblist.shape,yarblist.shape)
+        anglearblist = np.zeros(np.size(xarblist))+90.0
+
     return n,m,amps,phases,uni_spacing,x_pitch0,tem01_0,xarblist,yarblist,anglearblist
+
+
 
 
 
@@ -1289,26 +1379,26 @@ def choose_pattern(patternIn,scalepad):
 
 if __name__ == '__main__':
     if 1:
-        # phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\compensation_phase_list.txt'
+        # phase_path = runsettings.directory_FlirCamera + r'\pictures\compensation_phase_list.txt'
         # phase_information =[-2.213106427780366,-0.5808628956448176,-0.7924700487307755,-3.0426621474672846]
         # phase_information = -np.array(phase_information) / 2 / np.pi / 10
         # np.savetxt(phase_path, np.array(phase_information))
         #
-        # paths = [r"C:/Users/RiceT/Documents/FlirCamera/pictures/image_intensity/image_d06_h13_m20_s34.bmp",
-        #          r"C:/Users/RiceT/Documents/FlirCamera/pictures/average_image1.bmp",
-        #          r"C:/Users/RiceT/Documents/FlirCamera/pictures/average_image2.bmp",
-        #          r"C:/Users/RiceT/Documents/FlirCamera/pictures/average_image3.bmp"]
+        # paths = [r"C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/image_intensity/image_d06_h13_m20_s34.bmp",
+        #          r"C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/average_image1.bmp",
+        #          r"C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/average_image2.bmp",
+        #          r"C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/average_image3.bmp"]
         create_phase()
     if 5<1:
-        # phase_path = r'C:\Users\RiceT\Documents\FlirCamera\pictures\compensation_phase_list.txt'
+        # phase_path = runsettings.directory_FlirCamera + r'\pictures\compensation_phase_list.txt'
         # phase_information =[-2.213106427780366,-0.5808628956448176,-0.7924700487307755,-3.0426621474672846]
         # phase_information = -np.array(phase_information) / 2 / np.pi / 10
         # np.savetxt(phase_path, np.array(phase_information))
 
-        # paths = [r"C:/Users/RiceT/Documents/FlirCamera/pictures/image_intensity/image_d06_h13_m20_s34.bmp",
-        #          r"C:/Users/RiceT/Documents/FlirCamera/pictures/average_image1.bmp",
-        #          r"C:/Users/RiceT/Documents/FlirCamera/pictures/average_image2.bmp",
-        #          r"C:/Users/RiceT/Documents/FlirCamera/pictures/average_image3.bmp"]
+        # paths = [r"C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/image_intensity/image_d06_h13_m20_s34.bmp",
+        #          r"C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/average_image1.bmp",
+        #          r"C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/average_image2.bmp",
+        #          r"C:/Users/TrappedIonRiceDell1/Documents/FlirCamera/pictures/average_image3.bmp"]
         # create_phase()
 
         a = -3.733022642775838e-06
