@@ -3,6 +3,7 @@ import numpy as np
 import profile_v1 as profile
 from PIL import Image
 import slm_v1 as slm
+from scipy.stats import binned_statistic_2d
 
 def curvatureview():
     file_path = 'curvature_plots/curvature_tem01_2_1_u.npy'
@@ -429,7 +430,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def plot_fidelity_vs_efficiency(jsonl_path='JSONoutput/data_storage_smooth.jsonl'):
+def plot_fidelity_vs_efficiency_old(jsonl_path='JSONoutput/data_storage_zero_curve_temp.jsonl'):
     # 1. Read the JSONL file line-by-line safely
     if not os.path.exists(jsonl_path):
         print(f"Error: The file {jsonl_path} does not exist.")
@@ -486,13 +487,13 @@ def plot_fidelity_vs_efficiency(jsonl_path='JSONoutput/data_storage_smooth.jsonl
         for idx, row in group.iterrows():
             fids = row['fidelity_ion_list']
             effs = row['efficiency_ion_list']
-            loss_spots = row['loss_spots']
-            loss_spots_phase = row['loss_spots_phase']
-            loss_local_phase_std = row['loss_local_phase_std']
-
-            loss_spots_each_curve.append(loss_spots)
-            loss_local_std_each_curve.append(loss_local_phase_std)
-            loss_spots_phase_each_curve.append(loss_spots_phase)
+            # loss_spots = row['loss_spots']
+            # loss_spots_phase = row['loss_spots_phase']
+            # loss_local_phase_std = row['loss_local_phase_std']
+            #
+            # loss_spots_each_curve.append(loss_spots)
+            # loss_local_std_each_curve.append(loss_local_phase_std)
+            # loss_spots_phase_each_curve.append(loss_spots_phase)
             fids_last_each_curve.append(fids[-1])
 
             fids_each_curve.extend(fids)
@@ -500,26 +501,26 @@ def plot_fidelity_vs_efficiency(jsonl_path='JSONoutput/data_storage_smooth.jsonl
 
 
 
-            # Make sure we have data arrays that match in size and have elements to plot
-            # if len(fids) > 0 and len(fids) == len(effs):
-            #     run_label = f"Run {idx} (ID: {row.get('slurm_id', 'N/A')})"
-            #
-            #     # Plot the run as a scatter-line (both markers and connecting lines)
-            #     plt.plot(effs, fids, marker='o', linestyle='-', alpha=0.7, label=run_label)
-            #     lines_plotted += 1
-        plt.figure()
-        plt.scatter(fids_last_each_curve,loss_spots_each_curve,label="amp non-uniformity")
-        plt.scatter(fids_last_each_curve, loss_spots_phase_each_curve,label="phase non-uniformity")
-        plt.scatter(fids_last_each_curve, loss_local_std_each_curve, label="local phase non-uniformity within beam")
-        plt.title(f"curvature = {curvature_val}")
-        plt.legend()
-        plt.show()
+            #Make sure we have data arrays that match in size and have elements to plot
+            if len(fids) > 0 and len(fids) == len(effs):
+                run_label = f"Run {idx} (ID: {row.get('slurm_id', 'N/A')})"
 
-        # # Configure the plot window properties
-        # plt.title(f"Fidelity vs Efficiency — Curvature: {curvature_val}", fontsize=14, fontweight='bold')
-        # plt.xlabel("Ion Efficiency List", fontsize=12)
-        # plt.ylabel("Ion Fidelity List", fontsize=12)
-        # plt.grid(True, linestyle='--', alpha=0.6)
+                # Plot the run as a scatter-line (both markers and connecting lines)
+                plt.plot(effs, fids, marker='o', linestyle='-', alpha=0.7, label=run_label)
+                lines_plotted += 1
+        # plt.figure()
+        # plt.scatter(fids_last_each_curve,loss_spots_each_curve,label="amp non-uniformity")
+        # plt.scatter(fids_last_each_curve, loss_spots_phase_each_curve,label="phase non-uniformity")
+        # plt.scatter(fids_last_each_curve, loss_local_std_each_curve, label="local phase non-uniformity within beam")
+        # plt.title(f"curvature = {curvature_val}")
+        # plt.legend()
+        # plt.show()
+
+        # Configure the plot window properties
+        plt.title(f"Fidelity vs Efficiency — Curvature: {curvature_val}", fontsize=14, fontweight='bold')
+        plt.xlabel("Ion Efficiency List", fontsize=12)
+        plt.ylabel("Ion Fidelity List", fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.6)
         #plt.yscale('log')
 
         # Only show a legend if there's a reasonable number of runs to avoid overcrowding
@@ -538,16 +539,59 @@ def plot_fidelity_vs_efficiency(jsonl_path='JSONoutput/data_storage_smooth.jsonl
 
 
     # 4. Display all generated plot windows simultaneously
-    # plt.figure()
-    # for num in range(len(fids_all_curve)):
-    #     find_max_optimization_boundary(fids_all_curve[num], effs_all_curve[num], plot=True)
+    plt.figure()
+    # num=0
+    # for curvature_val, group in grouped:
+    #     optimal_pairs, (boundary_fids, boundary_effs)=find_max_optimization_boundary(fids_all_curve[num], effs_all_curve[num], plot=True)
+    #     print(optimal_pairs)
+    #     num=num+1
+    # plt.show()
+    data = []
+    num=0
+    y_min, y_max = 0.999, 1.0  # Adjust these to crop your Y-axis
+
+    X, Y, Z = [], [], []
+    for curvature_val, group in grouped:
+        _, (fids, effs),efficient_indices  = find_max_optimization_boundary(fids_all_curve[num], effs_all_curve[num], plot=False)
+        X.extend(np.full_like(fids, curvature_val))
+        Y.extend(fids)
+        Z.extend(effs)
+        num=num+1
+
+    # Convert to arrays and apply the fidelity mask
+    X, Y, Z = map(np.array, [X, Y, Z])
+    mask = (Y >= y_min) & (Y <= y_max)
+
+    # --- 2. Plot only the masked data ---
+    # vmin and vmax automatically lock the colorbar limits to your visible data range
+    scatter = plt.scatter(X[mask], Y[mask], c=Z[mask], cmap='viridis', marker='s', s=150,
+                          vmin=Z[mask].min(), vmax=Z[mask].max())
+
+    plt.colorbar(scatter, label='Max Efficiency')
+    plt.ylim(y_min, y_max)
+    plt.xlabel('Curvature')
+    plt.ylabel('Fidelity')
+    plt.show()
+
+    scatter2 = plt.scatter(Y[mask], Z[mask], c=X[mask], cmap='viridis',#, marker='s', s=150,
+                          vmin=X[mask].min(), vmax=X[mask].max())
+
+    plt.colorbar(scatter2, label='Curvature')
+    #plt.ylim(y_min, y_max)
+    plt.xlabel('Fidelity')
+    plt.ylabel('Efficiency')
+    plt.show()
+    mask = (Y >= 0.9994) & (Y <= 0.99942)
+    plot3 = plt.scatter(X[mask], Z[mask])
+
+    plt.colorbar(plot3, label='Efficiency=0.9994')
+    #plt.ylim(y_min, y_max)
+    plt.xlabel('Curvature')
+    plt.ylabel('Efficiency')
     plt.show()
 
 
-
-
-
-def find_max_optimization_boundary(fids, effs, plot=True):
+def find_max_optimization_boundary_old(fids, effs, plot=True):
     """
     Finds the pairs that maximize both fidelity and efficiency (Pareto Frontier)
     and plots the 2D maximum boundary.
@@ -613,7 +657,312 @@ def find_max_optimization_boundary(fids, effs, plot=True):
     return optimal_pairs, (boundary_fids, boundary_effs)
 
 
+def find_max_optimization_boundary(fids, effs, plot=True):
+    """
+    Finds the pairs that maximize both fidelity and efficiency (Pareto Frontier)
+    and returns the indices alongside the coordinates.
+    """
+    scores = np.vstack((fids, effs)).T
+    n_points = scores.shape[0]
+
+    is_efficient = np.ones(n_points, dtype=bool)
+    for i, c in enumerate(scores):
+        if is_efficient[i]:
+            is_efficient[is_efficient] = np.any(scores[is_efficient] > c, axis=1) | np.all(scores[is_efficient] == c,
+                                                                                           axis=1)
+
+    optimal_fids = scores[is_efficient, 0]
+    optimal_effs = scores[is_efficient, 1]
+    optimal_pairs = list(zip(optimal_fids, optimal_effs))
+
+    # Track the exact efficient indices
+    efficient_indices = np.where(is_efficient)[0]
+
+    sort_idx = np.argsort(optimal_fids)
+    boundary_fids = optimal_fids[sort_idx]
+    boundary_effs = optimal_effs[sort_idx]
+
+    if plot:
+        plt.scatter(fids, effs, color='lightgray', alpha=0.7, label='Sub-optimal Pairs')
+        plt.scatter(boundary_fids, boundary_effs, s=50, zorder=3, label='Pareto Pairs')
+        plt.plot(boundary_fids, boundary_effs, linestyle='-', linewidth=2, label='Maximum Boundary')
+        plt.xlabel('Fidelity')
+        plt.ylabel('Efficiency')
+        plt.title('Fidelity vs Efficiency Optimization Frontier')
+        plt.legend(loc='best')
+        plt.grid(True, linestyle=':', alpha=0.6)
+
+    return optimal_pairs, (boundary_fids, boundary_effs), efficient_indices
+
+
+def plot_boundary_heatmap(jsonl_path='JSONoutput/data_storage_11by11_curvature_change.jsonl',
+                          target_variable='Efficiency', y_min=0.999, y_max=1.0, pixel_height=0.00005):
+    if not os.path.exists(jsonl_path):
+        print(f"Error: The file {jsonl_path} does not exist.")
+        return None
+
+    data_runs = []
+    with open(jsonl_path, 'r') as f:
+        for line in f:
+            if line.strip():
+                data_runs.append(json.loads(line))
+    df = pd.DataFrame(data_runs)
+
+    def clean_numeric_list(val):
+        if not isinstance(val, list):
+            return []
+        return [x['real'] if isinstance(x, dict) and 'real' in x else x for x in val if
+                isinstance(x, (int, float, dict))]
+
+    df['fidelity_ion_list'] = df['fidelity_ion_list'].apply(clean_numeric_list)
+    df['efficiency_ion_list'] = df['efficiency_ion_list'].apply(clean_numeric_list)
+
+    grouped = df.groupby('Curvature')
+    X, Y, Z,High_eff = [], [], [],[]
+
+    for curvature_val, group in grouped:
+        fids_each_curve = []
+        effs_each_curve = []
+        run_mapping = []
+
+        for idx, row in group.iterrows():
+            fids = row['fidelity_ion_list']
+            effs = row['efficiency_ion_list']
+            fids_each_curve.extend(fids)
+            effs_each_curve.extend(effs)
+            run_mapping.extend([row] * len(fids))
+
+        if not fids_each_curve:
+            continue
+
+        # Unpack the new efficient_indices rule here
+        _, _, efficient_indices = find_max_optimization_boundary(fids_each_curve, effs_each_curve, plot=False)
+
+        # Pull values out strictly by their validated array indices
+        for exact_idx in efficient_indices:
+            f = fids_each_curve[exact_idx]
+            origin_row = run_mapping[exact_idx]
+
+            if target_variable in origin_row:
+                X.append(curvature_val)
+                Y.append(f)
+                Z.append(origin_row[target_variable])
+                High_eff.append(effs_each_curve[exact_idx])
+
+    if not X:
+        print(f"Error: No data extracted for target variable '{target_variable}'. Check your JSON keys.")
+        return None
+
+    X, Y, Z,High_eff = map(np.array, [X, Y, Z,High_eff])
+    mask = (Y >= y_min) & (Y <= y_max)
+    X_m, Y_m, Z_m,High_eff_mask = X[mask], Y[mask], Z[mask],High_eff[mask]
+
+    if len(Z_m) == 0:
+        print("No data points found inside the visible Y range.")
+        return None
+
+    unique_curves = np.sort(np.unique(X_m))
+    col_width = 0.05#np.min(np.diff(unique_curves)) if len(unique_curves) > 1 else 0.05
+
+    # Set plot titles cleanly
+    title_dict = {
+        'Efficiency': 'Efficiency',
+        'loss_spots': 'Amplitude non-uniformity',
+        'loss_spots_phase': 'Phase non-uniformity',
+        'loss_local_phase_std': 'Phase local non-uniformity'
+    }
+    plot_title = title_dict.get(target_variable, f"{target_variable.replace('_', ' ').title()}")
+
+    # Toggle to True if you want to switch back to block layouts instead of quick scatters
+    render_blocks = True
+    if True:
+        if target_variable == 'Efficiency':
+            Z_m=High_eff_mask
+        fig, ax = plt.subplots(figsize=(8, 6))
+        if render_blocks:
+            cmap = plt.get_cmap('plasma' if 'loss' in target_variable.lower() else 'viridis')
+            norm = plt.Normalize(vmin=Z_m.min(), vmax=Z_m.max())
+            ax.bar(x=X_m, height=pixel_height, width=col_width, bottom=Y_m - (pixel_height / 2), color=cmap(norm(Z_m)),
+                   edgecolor='none', align='center')
+            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+            sm.set_array([])
+            fig.colorbar(sm, ax=ax, label=plot_title)
+            ax.set_ylabel('Fidelity')
+        else:
+            scatter = ax.scatter(Y_m, Z_m, c=X_m, cmap='viridis')
+            fig.colorbar(scatter, ax=ax, label='Curvature')
+            ax.set_ylabel(plot_title)
+            ax.set_xlabel('Fidelity')
+
+        ax.set_ylim(y_min, y_max)
+        ax.set_xlabel('Curvature' if render_blocks else 'Fidelity')
+        ax.set_title(plot_title, fontsize=14, fontweight='bold')
+        ax.grid(True, linestyle=':', alpha=0.3)
+
+        return fig
+    else:
+        if target_variable=='Efficiency':
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.scatter(Y_m, High_eff_mask, c=X_m, cmap='viridis')
+            ax.title.set_text('Efficiency')
+            ax.set_xlabel('Fidelity')
+            ax.set_ylabel('Efficiency')
+            # cbar = fig.colorbar()
+            # cbar.set_label("Curvature")
+            return fig
+        else:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.scatter(Y_m, Z_m, c=X_m, cmap='viridis')
+            plt.title(plot_title, fontsize=16, fontweight='bold')
+            ax.set_xlabel('Fidelity')
+            ax.set_ylabel(plot_title)
+            # cbar = fig.colorbar()
+            # cbar.set_label("Curvature")
+            return fig
+
+def plot_boundary_heatmap_old(jsonl_path='JSONoutput/data_storage_11by11_curvature_change.jsonl',
+                          target_variable='Efficiency',
+                          y_min=0.999, y_max=1.0,
+                          pixel_height=0.00005):
+    if not os.path.exists(jsonl_path):
+        print(f"Error: The file {jsonl_path} does not exist.")
+        return
+
+    # 1. Read JSONL dataset safely
+    data_runs = []
+    with open(jsonl_path, 'r') as f:
+        for line in f:
+            if line.strip():
+                data_runs.append(json.loads(line))
+    df = pd.DataFrame(data_runs)
+
+    # Clean numeric lists to extract real components out of possible dictionaries
+    def clean_numeric_list(val):
+        if not isinstance(val, list): return []
+        return [x['real'] if isinstance(x, dict) and 'real' in x else x for x in val if
+                isinstance(x, (int, float, dict))]
+
+    df['fidelity_ion_list'] = df['fidelity_ion_list'].apply(clean_numeric_list)
+    df['efficiency_ion_list'] = df['efficiency_ion_list'].apply(clean_numeric_list)
+
+    grouped = df.groupby('Curvature')
+
+    X, Y, Z = [], [], []
+
+    # 2. Extract Pareto Frontier elements using the true combinations
+    for curvature_val, group in grouped:
+        fids_each_curve = []
+        effs_each_curve = []
+        run_mapping = []
+
+        # Flatten arrays while tracking which row/run index each point came from
+        for idx, row in group.iterrows():
+            fids = row['fidelity_ion_list']
+            effs = row['efficiency_ion_list']
+
+            fids_each_curve.extend(fids)
+            effs_each_curve.extend(effs)
+            run_mapping.extend([row] * len(fids))  # Keep pointer to full run metadata row
+
+        if not fids_each_curve:
+            continue
+
+        # Use find_max_optimization_boundary to figure out WHICH combinations are optimal
+        # We pass the flattened data to evaluate the global curve boundary for this curvature
+        optimal_pairs, _ = find_max_optimization_boundary(fids_each_curve, effs_each_curve, plot=False)
+        optimal_set = set(optimal_pairs)
+
+        # Re-verify and harvest the targeted variable for every single matching Pareto pair
+        for f, e, origin_row in zip(fids_each_curve, effs_each_curve, run_mapping):
+            if (f, e) in optimal_set and target_variable in origin_row:
+                X.append(curvature_val)
+                Y.append(f)
+                Z.append(origin_row[target_variable])
+
+    if not X:
+        print(f"Error: No data extracted for target variable '{target_variable}'. Check your JSON keys.")
+        return
+
+    X, Y, Z = map(np.array, [X, Y, Z])
+
+    # Apply dynamic visibility mask based on Y limits
+    mask = (Y >= y_min) & (Y <= y_max)
+    X_m, Y_m, Z_m = X[mask], Y[mask], Z[mask]
+
+    if len(Z_m) == 0:
+        print("No data points found inside the visible Y range.")
+        return
+
+    # 3. Calculate optimal column widths to make blocks blend horizontally
+    unique_curves = np.sort(np.unique(X_m))
+    col_width = np.min(np.diff(unique_curves)) if len(unique_curves) > 1 else 0.05
+
+    if target_variable=='Efficiency':
+        plot_title='Efficiency'
+    elif target_variable=='loss_spots':
+        plot_title='Amplitude non-uniformity'
+    elif target_variable=='loss_spots_phase':
+        plot_title='Phase non-uniformity'
+    elif target_variable=='loss_local_phase_std':
+        plot_title='Phase local non-uniformity'
+    else:
+        f'{target_variable.replace("_", " ").title()}'
+
+    # 4. Generate the Plot
+    if False:
+        fig,ax= plt.subplots(figsize=(10, 6))
+        cmap = plt.get_cmap('plasma' if 'loss' in target_variable.lower() else 'viridis')
+        norm = plt.Normalize(vmin=Z_m.min(), vmax=Z_m.max())
+
+        # Build the rectangular flat blocks mapping Y to the center of each bar
+        ax.bar(x=X_m, height=pixel_height, width=col_width, bottom=Y_m - (pixel_height / 2),
+                color=cmap(norm(Z_m)), edgecolor='none', align='center')
+
+        # Correct colorbar configuration linking specifically to our active axes
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        # fig.colorbar(sm, ax=plt.gca(), label=target_variable.replace('_', ' ').title())
+        fig.colorbar(sm, ax=plt.gca(), label=plot_title)
+
+
+        ax.set_ylim(y_min, y_max)
+        ax.set_xlabel('Curvature')
+        ax.set_ylabel('Fidelity')# of Pareto Pairs')
+        #ax.set_title(f'{target_variable.replace("_", " ").title()} for Pareto-Optimal Pairs', fontsize=12, fontweight='bold')
+        ax.set_title(plot_title, fontsize=14, fontweight='bold')
+
+        ax.grid(True, linestyle=':', alpha=0.3)
+        #plt.show()
+
+        return fig
+    else:
+        fig,ax = plt.subplots(figsize=(10, 6))
+        ax.scatter(Y_m,Z_m,c=X_m)
+        return fig
+
+
+def heatmap_dataplot_for_optimised_pairs():
+    fig1 = plot_boundary_heatmap(jsonl_path='JSONoutput/data_storage_11by11_curvature_change.jsonl',
+                          target_variable='Efficiency',
+                          y_min=0.999, y_max=1.0,
+                          pixel_height=0.00005)
+    fig2 = plot_boundary_heatmap(jsonl_path='JSONoutput/data_storage_11by11_curvature_change.jsonl',
+                          target_variable='loss_spots',
+                          y_min=0.999, y_max=1.0,
+                          pixel_height=0.00005)
+    fig3 = plot_boundary_heatmap(jsonl_path='JSONoutput/data_storage_11by11_curvature_change.jsonl',
+                          target_variable='loss_spots_phase',
+                          y_min=0.999, y_max=1.0,
+                          pixel_height=0.00005)
+    fig3 = plot_boundary_heatmap(jsonl_path='JSONoutput/data_storage_11by11_curvature_change.jsonl',
+                          target_variable='loss_local_phase_std',
+                          y_min=0.999, y_max=1.0,
+                          pixel_height=0.00005)
+    plt.show()
+
+
 if __name__ == '__main__':
+
     #datfilecreation()
     #curvatureview()
     #ffttest()
@@ -624,4 +973,5 @@ if __name__ == '__main__':
     #fftlens()
     #plotfromdatastorage() #csv file
     #pickleplot()
-    plot_fidelity_vs_efficiency()
+    plot_fidelity_vs_efficiency_old() #For the pareto curve
+    #heatmap_dataplot_for_optimised_pairs()

@@ -221,15 +221,15 @@ class ArrayModulator(slm.SLM):
         # print(np.max(phase))
         return phase
 
-    def lens_correction(self, shape, f=200):
+    def lens_correction(self, shape, f_x=200,f_y=None):
+        if f_y is None:
+            f_y = f_x
         x=np.linspace(-1,1,shape[1])
         y = np.linspace(-1, 1, shape[0])
         xx,yy=np.meshgrid(x,y)
         print(shape)
-        phase=-2*np.pi*(f/200.0)*( xx**2+yy**2)
+        phase=-2*np.pi*(200/f_x)*( xx**2)+-2*np.pi*(200/f_y)*(yy**2)
 
-        plt.imshow(phase)
-        plt.show()
         return phase
 
     # Wrapper for zernike_sum_phase in slmsuite
@@ -462,6 +462,18 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
 
     n, m, amps, phases, uni_spacing, x_pitch0, tem01_0,xarblist0, yarblist0, anglearblist0 = choose_pattern("tem00_31_31_u",scalepad)
     #uni_spacing, x_pitch0, tem01_0, xarblist0, yarblist0, anglearblist0 = True, x_pitch0,False,None,None,None
+
+    runsettings.n=n
+    runsettings.m=m
+    runsettings.amps=amps
+    runsettings.phases=phases
+    runsettings.x_pitch0=x_pitch0
+    runsettings.tem01_0=tem01_0
+    runsettings.xarblist0=xarblist0
+    runsettings.yarblist0=yarblist0
+    runsettings.anglearblist0=anglearblist0
+
+
     print("amps shape1", len(amps))
     double_amps_in = tuple([ampsx for ampsx in amps for _ in range(2)])  #
     print("double_amps_in1", len(double_amps_in))
@@ -476,6 +488,9 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     # Load each file as an element in a list
     measuredlist_full = [np.load(file)['intensity'] for file in file_list]
     print("measuredlist_full",(measuredlist_full))
+
+    if len(measuredlist_full)>0:
+        runsettings.first_round=False
 
     measuredlist_feedback=True
     if measuredlist_feedback: #measuredlist feedback
@@ -611,11 +626,14 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
 
     if only_gradmask_and_corr:
         wu_1x4_full=np.load(runsettings.directory_SLM_computation + r'\images\wu_1x4_full.npy')
+    lens_phase=mod.lens_correction((1024,1272),f_x=-500,f_y=50000)
+    mod.add_phase(lens_phase)
     ##Not saving for now.
     np.save(runsettings.directory_SLM_computation + r'\images\wu_1x4_full.npy', wu_1x4_full)
     # np.save(r'curvature_plots/curvature.npy', global_variables.curvature)
     # np.save(r'curvature_plots/final_eff_curvature.npy',global_variables.final_eff_curvature)
     # np.save(r'curvature_plots/final_ion_fidelity_curvature.npy', global_variables.final_ion_fidelity_curvature)
+    wu_1x4_full = scipy.ndimage.shift(wu_1x4_full, shift=(20,20), order=0)
 
     if plotshow:
         plt.imshow(np.mod(wu_1x4_full+np.pi,2*np.pi))
@@ -1351,8 +1369,8 @@ def choose_pattern(patternIn,scalepad):
         #amps=tuple(1*np.mod(i,2.0) for i in range(n * m))
         phases = tuple(0. for i in range(n * m))#tuple(0.5*np.mod(i,2.0) for i in range(n * m))#tuple(0.5*np.mod(i,2.0) for i in range(n * m))###tuple(0.5*np.mod((i % m)//5,2.0) for i in range(n * m))#
         uni_spacing = False #Setting this to true defaults to integrer spot spacing as of now
-        x_pitch0 =0.0055*np.sqrt(2) #0.0055
-        tem01_0 = True
+        x_pitch0 =0.0063#*np.sqrt(2)#0.0063#0.0055*np.sqrt(2) #0.0055
+        tem01_0 =False
         print("initial phase",phases)
         print("initial amps",amps)
         # if tem01_0:

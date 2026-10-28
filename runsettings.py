@@ -36,6 +36,18 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     global saveoutputimages
     global plot_images_global
 
+    global n
+    global m
+    global amps
+    global phases
+    global x_pitch0
+    global tem01_0
+    global xarblist0
+    global yarblist0
+    global anglearblist0
+
+
+
     global curvature
     global fb_global
     global fbmix_global
@@ -53,6 +65,10 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     global efficiency_limit
     global efficiency_limit_scale
     global pattern_num
+
+    global loss_beta
+    global loss_gamma
+
     #Added
     global Final_efficiency
     global Final_box_fidelity
@@ -75,6 +91,8 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     global directory_SLM_computation
     global directory_SLM_Pytorch
     global directory_FlirCamera
+
+    global first_round
 
     directory_SLM_computation=r'C:\Users\TrappedIonRiceDell1\Documents\SLM_computation'
     directory_SLM_Pytorch=r'C:\Users\TrappedIonRiceDell1\Documents\SLM_Pytorch'
@@ -125,8 +143,8 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     #Phase of beams
     #phases=tuple(float(x) for x in np.random.rand(5)) #(np.random.rand(1)[0],np.random.rand(1)[0],np.random.rand(1)[0],np.random.rand(1)[0],np.random.rand(1)[0])
     phases=(0.0,0.0,0.0,0.0,0.0)
-    curvature=0.575#5#0.575#75#0.75#0.575#0.75
-    start_phase_curve=0.0050#0.001 for quadratic curve
+    curvature=serialcounter5#0*0.575#5#0.575#75#0.75#0.575#0.75
+    start_phase_curve=serialcounter4#0.0050#0.001 for quadratic curve
     #phases=(0.585,0.974,0.576,0.153,0.974)
     if task_id==0:
         phases=(0.0,0.0,0.0,0.0,0.0)
@@ -135,20 +153,25 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     with open(output_path+'/'+'runconfig.txt', 'a') as f:
         f.write(f"phases={phases}\n")
 
+    first_round=True
+
 
     method="grad" #grad
-    exp_amp_global_wu=serialcounter1 #0.1
-    exp_phase_global_wu=serialcounter2 #0.1
+    exp_amp_global_wu=0.1
+    exp_phase_global_wu=0.1
     fbmix_global=0.1
     fb_global=0.1#serialcounter2*0.1#np.random.rand()
     wu_gamma_out=0.1#serialcounter3
     wu_beta_in=0.1#serialcounter4
     exp_amp_global_diff_wu = 0.1#serialcounter5
 
+    loss_beta = serialcounter3
+    loss_gamma=0.0
+
 
     learning_rate=0.002#0.002 used for old datas and for 33 by 33
-    efficiency_limit=0.1*serialcounter1
-    efficiency_limit_scale =10* serialcounter2
+    efficiency_limit=0.1#*serialcounter1
+    efficiency_limit_scale =10#* serialcounter2
 
     waist_scale=0.55/0.62#0.62#1#0.55/0.45#1
     scalepad_global=2
@@ -157,7 +180,7 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     if not os.path.exists(final_measures_dst+'/'+'final_measures_grad_pattern_'+str(pattern_num)+'.txt'):
         open(final_measures_dst+'/'+'final_measures_grad_pattern_'+str(pattern_num)+'.txt', 'w').close()  # Create empty file
 
-    plot_images_global=True
+    plot_images_global=False
 
 
     print(f"[Init] Taskid: {task_id}")
@@ -168,7 +191,7 @@ def storedata_csv():
     import pandas as pd
     import os
 
-    file_name = 'data_storage.csv'
+    file_name = 'data_storage_temp.csv'
 
     # 1. Load existing data or create a new file
     if os.path.exists(file_name):
@@ -235,7 +258,7 @@ import numpy as np  # Ensure numpy is imported for the helper function
 
 def storedata():
     target_dir = 'JSONoutput'
-    log_file = os.path.join(target_dir, 'data_storage.jsonl')
+    log_file = os.path.join(target_dir, 'data_storage_zero_curve_temp.jsonl') # _11by11_curvature_change.jsonl')
 
     # 1. Create the directory if it doesn't exist to prevent FileNotFoundError
     os.makedirs(target_dir, exist_ok=True)
@@ -273,6 +296,9 @@ def storedata():
         'slurm_id': str(slurm_id),
         'task_id': task_id,
         'Timestampstart': str(Timestampstart),
+        'n': to_serializable(n),
+        'm': to_serializable(m),
+        'tem01_0': to_serializable(tem01_0),
         'Fidelity_box': to_serializable(Final_box_fidelity),
         'Fidelity_ion': to_serializable(Final_ion_fidelity),
         'Efficiency': to_serializable(Final_efficiency),
@@ -287,15 +313,22 @@ def storedata():
         'fbmix_global': to_serializable(fbmix_global),
         'wu_gamma_out': to_serializable(wu_gamma_out),
         'wu_beta_in': to_serializable(wu_beta_in),
+        'loss_beta': to_serializable(loss_beta),
+        'loss_gamma': to_serializable(loss_gamma),
         'exp_amp_diff_wu': to_serializable(exp_amp_global_diff_wu),
         'comment': "",
         'waist_scale': to_serializable(waist_scale),
         'Maximum_possible_efficiency_complex': to_serializable(Maximum_possible_efficiency_complex),
-        'fidelity_ion_list': to_serializable(fidelity_ion_list),
-        'efficiency_ion_list': to_serializable(efficiency_ion_list),
         'loss_spots': to_serializable(loss_spots),
         'loss_local_phase_std': to_serializable(loss_local_phase_std),
-        'loss_spots_phase': to_serializable(loss_spots_phase)
+        'loss_spots_phase': to_serializable(loss_spots_phase),
+        'x_pitch0': to_serializable(x_pitch0),
+        'amps': to_serializable(amps),
+        'phases': to_serializable(phases),
+        'xarblist0': to_serializable(xarblist0),
+        'yarblist0': to_serializable(yarblist0),
+        'fidelity_ion_list': to_serializable(fidelity_ion_list),
+        'efficiency_ion_list': to_serializable(efficiency_ion_list)
     }
 
     # 2. Append the row safely on the NOTS cluster VAST file system

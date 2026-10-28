@@ -967,9 +967,10 @@ class Wu(IFTA):
             # plt.imshow((start_phase.get()))
             # plt.show()
 
-        self.first_round=True
+        #runsettings.first_round=True
+        print("first_round",runsettings.first_round)
 
-        if not self.first_round: #Preloading from a  file
+        if not runsettings.first_round: #Preloading from a  file
             start_phase=cp.array(pad_border(np.load(runsettings.directory_SLM_computation + r'\images\wu_1x4_full.npy'),size))
             start_phase=start_phase+2 * pi * cp.random.normal(0, 0.01, size)
 
@@ -1007,7 +1008,7 @@ class Wu(IFTA):
             tilt_phase = runsettings.start_phase_curve * ((local_y[:, None] + local_x[None, :]))
             start_phase = normalised_slm_fft_magnitude* cp.mod((slm_fft_angle + tilt_phase),2*cp.pi) - tilt_phase
 
-        start_phase=self.generate_random_start_phase(Target_orig_fft, size, runsettings,self.first_round)
+        start_phase=self.generate_random_start_phase(Target_orig_fft, size, runsettings)
 
 
         start_phase = cp.asarray(start_phase)
@@ -1015,6 +1016,7 @@ class Wu(IFTA):
         # plt.imshow(np.abs(np.mod(start_phase.get(),2*np.pi)))
         # plt.title("start_phase")
         # plt.figure()
+
 
         self.slm_field = self.input * cp.exp(1j * self.p)
         self.image_field = cp.fft.fftshift(cp.fft.fft2(cp.fft.fftshift(self.slm_field), norm="ortho"))
@@ -1114,9 +1116,9 @@ class Wu(IFTA):
         #plt.show()
         #Get the spot positions and create a circle around it
         print(cp.multiply(cp.asarray(target_orig[1]),self.res_factor))
-        self.ion_mask = make_ion_mask_cp(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),radius=45)#50 #100 for 33 by 33 data
+        self.ion_mask = make_ion_mask_cp(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),radius=45*3)#50 #100 for 33 by 33 data
         self.ion_mask_smooth = make_ion_mask_cp_smooth(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),
-                                         radius=50,edge_width=4)  # 50
+                                         radius=50*3,edge_width=4)  # 50
 
         if tem01==True:
             spots_temp=cp.multiply(cp.asarray(target_orig[1]), self.res_factor)
@@ -1248,7 +1250,7 @@ class Wu(IFTA):
         self.phase_memory = phase_memory
 
 
-    def generate_random_start_phase(self,Target_orig_fft, size, runsettings, first_round=True):
+    def generate_random_start_phase(self,Target_orig_fft, size, runsettings):
         """
         Randomly selects a starting phase strategy and samples hyperparameters
         (noise, curvature, tilts) to comprehensively span initial conditions.
@@ -1264,11 +1266,12 @@ class Wu(IFTA):
 
         # 2. Randomly pick an initialization strategy (0 to 4)
         # Exclude file loading if it is the first round
-        strategy_pool = [0, 2, 3, 4] if first_round else [1]#[0, 1, 2, 3, 4]
+        #strategy_pool = [0, 2, 3, 4] if runsettings.first_round else [1]#[0, 1, 2, 3, 4]
+        strategy_pool = [4] if runsettings.first_round else [1]
         chosen_strategy = int(np.random.choice(strategy_pool))
 
         # 3. Dynamically randomize coefficients
-        rand_curve = float(np.random.uniform(0.1, 2.0)) * runsettings.start_phase_curve
+        rand_curve = runsettings.start_phase_curve#float(np.random.uniform(0.1, 2.0)) * runsettings.start_phase_curve
         rand_noise_scale = float(np.random.uniform(0.0001, 0.05))
 
         # Default fallback phase
@@ -2569,7 +2572,7 @@ class Wu(IFTA):
 
             eta = num / (den + 1e-12)
 
-            loss_complexoverlap = 100 * (1 - torch.real(eta))
+            loss_complexoverlap = 1000 * (1 - torch.real(eta))
 
             out_complex_small = A_out * torch.exp(1j * P_out) * self.ion_mask_small#
             target_complex_small = A_target_amp * torch.exp(1j * P_target_phase) * self.ion_mask_small#
@@ -2905,11 +2908,14 @@ class Wu(IFTA):
             #     loss=(1-Efficiency_beam_intensity)*0.2#2*torch.mean(torch.abs(err))
             # alpha_l = epoch / epochs
             # loss = (1 - alpha_l) * loss_complexoverlap + (alpha_l) * torch.mean(torch.abs(err)) * (target_loss/0.005)# + alpha_l*(torch.max(torch.tensor(0.0),0.48-Efficiency_beam_intensity))
-            if epoch<(2000 if self.first_round else 200):
-                loss = loss_complexoverlap#+20*(target_loss/0.005)*torch.mean(torch.abs(err)**2)#+20*torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1#(1-alpha_l) * loss_complexoverlap + (alpha_l) * (1-Efficiency_beam_intensity)*1
+            if epoch<(2000 if runsettings.first_round else 200):
+                loss = loss_complexoverlap#+runsettings.loss_beta*torch.max(torch.tensor(0.0),0.10-Efficiency_beam_intensity)#+20*(target_loss/0.005)*torch.mean(torch.abs(err)**2)#+20*torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1#(1-alpha_l) * loss_complexoverlap + (alpha_l) * (1-Efficiency_beam_intensity)*1
             else:
                 loss=loss_complexoverlap+500*loss_local_phase_std +10*(target_loss/0.0005)*loss_spots+10000*loss_spots_phase#20*(target_loss/0.005)*torch.mean(torch.abs(err))#loss_complexoverlap+torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1
             #loss= loss_complexoverlap*((1-Efficiency_beam_intensity))**50
+            # if epoch==2000:
+            #     for g in  optimizer.param_groups:
+            #         g['lr']=runsettings.learning_rate*1000
 
 
             if True:  # best loss
@@ -4691,6 +4697,10 @@ class OuterLoop:
 
         if show:
             plt.show()
+
+        plt.plot( np.array(self.wuseff[self.min_it]),cp.array(self.wusfidelity_ion_err[self.min_it]).get())
+        plt.title("Fidelity vs efficiency")
+        plt.show()
 
 
 # Generate single TEM01 beam

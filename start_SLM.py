@@ -22,10 +22,10 @@ import numpy as np
 
 for serialcounter1 in np.arange(0.1,6.6,6.9):
     for serialcounter2 in np.arange(0.1,0.82,0.8):
-        for serialcounter3 in np.arange(1, 1.2, 2):
-            for serialcounter4 in np.arange(0.7, 1.6, 11.2):
-                for serialcounter5 in np.arange(0.8, 2.7, 10):
-                    for serialcounter_not_used in np.arange(0, 20, 1):
+        for serialcounter3 in np.arange(0.0, 100, 200): #Used for loss_beta in runsettings
+            for serialcounter4 in [0.001]:#np.arange(0.00, 0.1, 0.01): #start_phase curve
+                for serialcounter5 in [0*0.575]:#np.arange(0.6, 1.0, 0.05):#np.append(np.arange(0.0, 0.006, 0.05),0.575): #For curvature
+                    for serialcounter_not_used in np.arange(0, 1, 1):
                         runsettings.init(serialcounter1,serialcounter2,serialcounter3,serialcounter4,serialcounter5)
                         ArrayModulator_v1.create_phase()
                         runsettings.storedata()

@@ -1,0 +1,99 @@
+*.npy
+Analysis_images/Amplitude_nonuniformity_11by11.svg
+Analysis_images/Efficiency_11by11.svg
+Analysis_images/Figure_1.png
+Analysis_images/loss.png
+Analysis_images/loss_spots.png
+Analysis_images/Phase_nonuniformity_11by11.svg
+Cluster Files/ArrayModulator_v1.py
+Cluster Files/environment_slm_pytorch.yml
+Cluster Files/global_variables.py
+Cluster Files/IFTA_v1.py
+Cluster Files/InversePhase.py
+Cluster Files/miscellaneous.py
+Cluster Files/PhaseExtraction_v1.py
+Cluster Files/profile_v1.py
+Cluster Files/runsettings.py
+Cluster Files/slm_v1.py
+Cluster Files/slmGUI_camera.py
+Cluster Files/start_SLM.py
+Cluster Files/zbf_zemax.py
+Cluster Files/zbf_zemax_main.py
+GITHUB_files/ArrayModulator_v1.py
+GITHUB_files/environment_slm_pytorch.yml
+GITHUB_files/global_variables.py
+GITHUB_files/IFTA_v1.py
+GITHUB_files/InversePhase.py
+GITHUB_files/miscellaneous.py
+GITHUB_files/PhaseExtraction_v1.py
+GITHUB_files/profile_v1.py
+GITHUB_files/runsettings.py
+GITHUB_files/slm_v1.py
+GITHUB_files/slmGUI_camera.py
+GITHUB_files/start_SLM.py
+GITHUB_files/zbf_zemax.py
+GITHUB_files/zbf_zemax_main.py
+images/411corrwithLUT.bmp
+images/413corrwithLUT.bmp
+images/crosstem11_deflection0p12n0p12.bmp
+images/deflection0p120p12.bmp
+images/deflection0p12n0p12.bmp
+images/deflection0p12n0p12_HamatsuCorrection.bmp
+images/inner_convergence.png
+images/outer_convergence.png
+images/phase_mask0_0.bmp
+images/phase_mask0_0_027.bmp
+images/phase_mask0_0_0274.bmp
+images/phase_mask0_0_Hcorr_xn0p24_y0p20.bmp
+images/phase_mask0_0_nocorr.bmp
+images/phase_mask0_120.bmp
+images/phase_mask0_240.bmp
+images/phase_mask0_tem00_x1_0.bmp
+images/phase_mask0_tem00_x1_120.bmp
+images/phase_mask0_tem00_x1_240.bmp
+images/TEM$_{01}$ Beam Profile.bmp
+images/TEM$_{01}$ Beam Profile_amp.bmp
+images/TEM$_{01}$ Beam Profile_color.png
+images/TEM$_{01}$ Beam Profile_phase.bmp
+images/wu1x4_intensity.bmp
+images/wu1x4_phase.bmp
+JSONoutput/data_storage.jsonl
+JSONoutput/data_storage_11by11.jsonl
+JSONoutput/data_storage_11by11_curvature_change - Copy.jsonl
+JSONoutput/data_storage_11by11_curvature_change.jsonl
+JSONoutput/data_storage_11by11_curvature_change_with_loss_functions.jsonl
+JSONoutput/data_storage_11by11_dandwaistchange.jsonl
+JSONoutput/data_storage_smooth.jsonl
+JSONoutput/data_storage_waistChange.jsonl
+JSONoutput/data_storage_zero_curve_temp.jsonl
+sim_output/2026/final_measures_grad_pattern_0.1.txt
+sim_output/2026/final_measures_grad_pattern_0.2.txt
+sim_output/2026/final_measures_grad_pattern_0.4.txt
+sim_output/2026/final_measures_grad_pattern_0.45.txt
+sim_output/2026/final_measures_grad_pattern_0.8.txt
+sim_output/2026/final_measures_grad_pattern_4.0.txt
+sim_output/2026/final_measures_grad_pattern_6.4.txt
+sim_output/2026/final_measures_grad_pattern_9.8.txt
+sim_output/2026/2026_0.1/runconfig.txt
+sim_output/2026/2026_0.2/runconfig.txt
+sim_output/2026/2026_-0.2/runconfig.txt
+sim_output/2026/2026_0.4/runconfig.txt
+sim_output/2026/2026_0.45/runconfig.txt
+sim_output/2026/2026_0.8/runconfig.txt
+sim_output/2026/2026_4.0/runconfig.txt
+sim_output/2026/2026_6.4/runconfig.txt
+__pycache__/ArrayModulator_v1.cpython-311.pyc
+__pycache__/global_variables.cpython-311.pyc
+__pycache__/IFTA_v1.cpython-311.pyc
+__pycache__/InversePhase.cpython-311.pyc
+__pycache__/PhaseExtraction_v1.cpython-311.pyc
+__pycache__/profile_v1.cpython-311.pyc
+__pycache__/runsettings.cpython-311.pyc
+__pycache__/slm_v1.cpython-311.pyc
+__pycache__/zbf_zemax.cpython-311.pyc
+.idea/misc.xml
+.idea/modules.xml
+.idea/SLM_Pytorch.iml
+.idea/vcs.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/.gitignore
