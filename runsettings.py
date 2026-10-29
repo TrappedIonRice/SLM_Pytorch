@@ -7,9 +7,6 @@ import shutil
 import numpy as np
 import os
 
-from networkx.algorithms.efficiency_measures import efficiency
-from sympy import false
-from tornado.process import task_id
 
 try:
     import cupy as cp
@@ -173,14 +170,14 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     efficiency_limit=0.1#*serialcounter1
     efficiency_limit_scale =10#* serialcounter2
 
-    waist_scale=0.55/0.62#0.62#1#0.55/0.45#1
+    waist_scale=0.55/0.62*0.97466906054#0.62#1#0.55/0.45#1
     scalepad_global=2
 
     final_measures_dst = os.path.join(os.getcwd(), "sim_output",str(slurm_id))
     if not os.path.exists(final_measures_dst+'/'+'final_measures_grad_pattern_'+str(pattern_num)+'.txt'):
         open(final_measures_dst+'/'+'final_measures_grad_pattern_'+str(pattern_num)+'.txt', 'w').close()  # Create empty file
 
-    plot_images_global=False
+    plot_images_global=True
 
 
     print(f"[Init] Taskid: {task_id}")

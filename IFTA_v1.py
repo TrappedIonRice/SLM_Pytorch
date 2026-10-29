@@ -101,7 +101,7 @@ def make_ion_mask_cp_smooth(shape, spots, radius, edge_width=2.0):
     r_outer = radius + edge_width / 2.0
 
     for x_spot, y_spot in spots:
-        dx2 = (x - x_spot) ** 2  # shape (nx,)
+        dx2 = (x - x_spot) ** 2 *(ny/nx)**2 # shape (nx,)
         dy2 = (y - y_spot) ** 2  # shape (ny,)
 
         # Distance from current spot center
@@ -114,9 +114,6 @@ def make_ion_mask_cp_smooth(shape, spots, radius, edge_width=2.0):
         # Combine overlapping spots taking spatial maximum
         ion_mask = cp.maximum(ion_mask, spot_mask)
 
-    # plt.imshow(np.abs(ion_mask.get()))
-    # plt.title("ion_mask smooth")
-    # plt.show()
 
     return ion_mask
 
@@ -141,7 +138,7 @@ def make_ion_mask_cp(shape, spots, radius):
         if np.mod(eventrack,1)==0:
             #x_spot=(x_temp+x_spot)*0.5
             #y_spot = (y_temp + y_spot) * 0.5
-            dx2 = (x - x_spot) ** 2          # shape (nx,)
+            dx2 = (x - x_spot) ** 2   *(ny/nx)**2        # shape (nx,)
             dy2 = (y - y_spot) ** 2          # shape (ny,)
 
             # Broadcasting: (ny, 1) + (1, nx) -> (ny, nx)
@@ -1116,9 +1113,16 @@ class Wu(IFTA):
         #plt.show()
         #Get the spot positions and create a circle around it
         print(cp.multiply(cp.asarray(target_orig[1]),self.res_factor))
-        self.ion_mask = make_ion_mask_cp(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),radius=45*3)#50 #100 for 33 by 33 data
+        self.ion_mask = make_ion_mask_cp(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),radius=3*3)#50 #100 for 33 by 33 data
         self.ion_mask_smooth = make_ion_mask_cp_smooth(size, spots=cp.multiply(cp.asarray(target_orig[1]), self.res_factor),
-                                         radius=50*3,edge_width=4)  # 50
+                                         radius=50*3,edge_width=24*3)  # 50
+        if runsettings.plot_images_global==True:
+            plt.imshow(self.ion_mask.get())
+            plt.title("ion_mask")
+            plt.figure()
+            plt.imshow(np.abs(ion_mask.get()))
+            plt.title("ion_mask smooth")
+            plt.show()
 
         if tem01==True:
             spots_temp=cp.multiply(cp.asarray(target_orig[1]), self.res_factor)
@@ -1220,6 +1224,7 @@ class Wu(IFTA):
         I_t_final = (np.abs(target[0].get()) ** 2)
         I_t_final = I_t_final / np.max(I_t_final)
         np.save("simulation_target_intensity.npy", I_t_final)
+        np.save("simulation_target_phase.npy", np.angle(target[0].get()) )
 
         '''End New func'''
 
@@ -1267,7 +1272,7 @@ class Wu(IFTA):
         # 2. Randomly pick an initialization strategy (0 to 4)
         # Exclude file loading if it is the first round
         #strategy_pool = [0, 2, 3, 4] if runsettings.first_round else [1]#[0, 1, 2, 3, 4]
-        strategy_pool = [4] if runsettings.first_round else [1]
+        strategy_pool = [0] if runsettings.first_round else [1]
         chosen_strategy = int(np.random.choice(strategy_pool))
 
         # 3. Dynamically randomize coefficients
@@ -2459,7 +2464,7 @@ class Wu(IFTA):
             # 2. --- ITERATIVE LOOP ---
         lr = runsettings.learning_rate # 5
         epochs = 6000
-        target_loss=0.1e-1#+ 5e-1#*0.005
+        target_loss=10#0.1e-1#+ 5e-1#*0.005
         patience=6000
         best_loss=float('inf')
         patience_counter=0
@@ -2908,7 +2913,7 @@ class Wu(IFTA):
             #     loss=(1-Efficiency_beam_intensity)*0.2#2*torch.mean(torch.abs(err))
             # alpha_l = epoch / epochs
             # loss = (1 - alpha_l) * loss_complexoverlap + (alpha_l) * torch.mean(torch.abs(err)) * (target_loss/0.005)# + alpha_l*(torch.max(torch.tensor(0.0),0.48-Efficiency_beam_intensity))
-            if epoch<(2000 if runsettings.first_round else 200):
+            if epoch<(6000 if runsettings.first_round else 200):
                 loss = loss_complexoverlap#+runsettings.loss_beta*torch.max(torch.tensor(0.0),0.10-Efficiency_beam_intensity)#+20*(target_loss/0.005)*torch.mean(torch.abs(err)**2)#+20*torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1#(1-alpha_l) * loss_complexoverlap + (alpha_l) * (1-Efficiency_beam_intensity)*1
             else:
                 loss=loss_complexoverlap+500*loss_local_phase_std +10*(target_loss/0.0005)*loss_spots+10000*loss_spots_phase#20*(target_loss/0.005)*torch.mean(torch.abs(err))#loss_complexoverlap+torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1
