@@ -21,8 +21,8 @@ import numpy as np
 #serial counters can be used in runsettings to change values parametrically
 
 for serialcounter1 in np.arange(0.1,6.6,6.9):
-    for serialcounter2 in np.arange(0.1,0.82,0.8):
-        for serialcounter3 in np.arange(0.0, 100, 200): #Used for loss_beta in runsettings
+    for serialcounter2 in np.arange(0,0.20,1):
+        for serialcounter3 in np.arange(2000, 3000, 2000): #Used for loss_beta in runsettings
             for serialcounter4 in [0.001]:#np.arange(0.00, 0.1, 0.01): #start_phase curve
                 for serialcounter5 in [0*0.575]:#np.arange(0.6, 1.0, 0.05):#np.append(np.arange(0.0, 0.006, 0.05),0.575): #For curvature
                     for serialcounter_not_used in np.arange(0, 1, 1):

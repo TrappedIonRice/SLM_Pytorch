@@ -1120,7 +1120,7 @@ class Wu(IFTA):
             plt.imshow(self.ion_mask.get())
             plt.title("ion_mask")
             plt.figure()
-            plt.imshow(np.abs(ion_mask.get()))
+            plt.imshow(np.abs(self.ion_mask_smooth.get()))
             plt.title("ion_mask smooth")
             plt.show()
 
@@ -1271,13 +1271,19 @@ class Wu(IFTA):
 
         # 2. Randomly pick an initialization strategy (0 to 4)
         # Exclude file loading if it is the first round
-        #strategy_pool = [0, 2, 3, 4] if runsettings.first_round else [1]#[0, 1, 2, 3, 4]
-        strategy_pool = [0] if runsettings.first_round else [1]
+        strategy_pool = [0, 2, 3, 4,5,6,7,8,9] if runsettings.first_round else [1]#[0, 1, 2, 3, 4]
+        #strategy_pool = [0] if runsettings.first_round else [1]
         chosen_strategy = int(np.random.choice(strategy_pool))
 
         # 3. Dynamically randomize coefficients
-        rand_curve = runsettings.start_phase_curve#float(np.random.uniform(0.1, 2.0)) * runsettings.start_phase_curve
+        #rand_curve = runsettings.start_phase_curve#float(np.random.uniform(0.1, 2.0)) * runsettings.start_phase_curve
+        rand_curve = 10**(float(np.random.uniform(-1, 0.00))) #* runsettings.start_phase_curve
         rand_noise_scale = float(np.random.uniform(0.0001, 0.05))
+        print("start_phase choice: ", chosen_strategy, " rand_curve: ",rand_curve, "rand_noise_scale",rand_noise_scale )
+
+        runsettings.start_phase_choice = chosen_strategy
+        runsettings.start_phase_curve = rand_curve
+        runsettings.start_phase_rand = rand_noise_scale
 
         # Default fallback phase
         start_phase = cp.zeros(size)
@@ -1310,6 +1316,60 @@ class Wu(IFTA):
             tilt_phase = rand_curve * (Y + X)
             modulated = norm_fft_mag * cp.mod((slm_fft_angle + tilt_phase), 2 * cp.pi)
             start_phase = modulated - tilt_phase
+
+        elif chosen_strategy == 5:
+            # Uniform Random Phase (0 to 2pi baseline)
+            start_phase = cp.random.uniform(0, 2 * cp.pi, size)
+
+        elif chosen_strategy == 6:
+            # Smooth Low-Pass / Gaussian Blur Noise
+            raw_noise = cp.random.uniform(-cp.pi, cp.pi, size)
+            sigma = float(np.random.uniform(2.0, 8.0))
+            gaussian_kernel = cp.exp(-(X ** 2 + Y ** 2) / (2 * sigma ** 2))
+            gaussian_kernel /= cp.sum(gaussian_kernel)
+
+            # Smooth noise via FFT convolution
+            smooth_field = cp.fft.ifft2(cp.fft.fft2(raw_noise) * cp.fft.fft2(cp.fft.ifftshift(gaussian_kernel)))
+            start_phase = cp.angle(smooth_field)
+
+        elif chosen_strategy == 7:
+            # Vortex / Orbital Angular Momentum (OAM) Topological Phase Ramp
+            topological_charge = float(np.random.choice([-2, -1, 1, 2]))
+            theta = cp.arctan2(Y, X)
+            vortex_phase = topological_charge * theta
+
+            # Add optional noise perturbation to break exact central singularity
+            start_phase = vortex_phase + 2 * cp.pi * cp.random.normal(0, rand_noise_scale, size)
+
+        elif chosen_strategy == 8:
+            # Iterative Gerchberg-Saxton (GS) Pre-seeding (10 Fast Warmup Steps)
+            gs_iterations = 10
+            target_amp = norm_fft_mag
+            slm_amp = cp.ones(size)  # Uniform illumination assumption
+
+            current_phase = cp.random.uniform(0, 2 * cp.pi, size)
+            for _ in range(gs_iterations):
+                # Forward propagation to Fourier target plane
+                slm_field = slm_amp * cp.exp(1j * current_phase)
+                target_field_est = cp.fft.fft2(slm_field)
+
+                # Enforce target amplitude while keeping phase
+                target_field_constrained = target_amp * cp.exp(1j * cp.angle(target_field_est))
+
+                # Backward propagation to SLM plane
+                slm_field_back = cp.fft.ifft2(target_field_constrained)
+                current_phase = cp.angle(slm_field_back)
+
+            start_phase = current_phase + 2 * cp.pi * cp.random.normal(0, rand_noise_scale, size)
+
+        elif chosen_strategy == 9:
+            # High-Frequency Carrier Grating Tilt (Carrier-wave encoding for complex fields)
+            kx = rand_curve * float(np.random.uniform(1.0, 5.0))
+            ky = rand_curve * float(np.random.uniform(1.0, 5.0))
+            carrier_tilt = kx * X + ky * Y
+
+            # Superimpose carrier grating onto estimated target phase
+            start_phase = cp.mod(slm_fft_angle + carrier_tilt, 2 * cp.pi)
 
         return start_phase
 
@@ -2464,7 +2524,7 @@ class Wu(IFTA):
             # 2. --- ITERATIVE LOOP ---
         lr = runsettings.learning_rate # 5
         epochs = 6000
-        target_loss=10#0.1e-1#+ 5e-1#*0.005
+        target_loss=0.1#0.1e-1#+ 5e-1#*0.005
         patience=6000
         best_loss=float('inf')
         patience_counter=0
@@ -2913,10 +2973,10 @@ class Wu(IFTA):
             #     loss=(1-Efficiency_beam_intensity)*0.2#2*torch.mean(torch.abs(err))
             # alpha_l = epoch / epochs
             # loss = (1 - alpha_l) * loss_complexoverlap + (alpha_l) * torch.mean(torch.abs(err)) * (target_loss/0.005)# + alpha_l*(torch.max(torch.tensor(0.0),0.48-Efficiency_beam_intensity))
-            if epoch<(6000 if runsettings.first_round else 200):
+            if loss_complexoverlap>target_loss*1000:#epoch<(6000 if runsettings.first_round else 200):
                 loss = loss_complexoverlap#+runsettings.loss_beta*torch.max(torch.tensor(0.0),0.10-Efficiency_beam_intensity)#+20*(target_loss/0.005)*torch.mean(torch.abs(err)**2)#+20*torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1#(1-alpha_l) * loss_complexoverlap + (alpha_l) * (1-Efficiency_beam_intensity)*1
             else:
-                loss=loss_complexoverlap+500*loss_local_phase_std +10*(target_loss/0.0005)*loss_spots+10000*loss_spots_phase#20*(target_loss/0.005)*torch.mean(torch.abs(err))#loss_complexoverlap+torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1
+                loss=loss_complexoverlap+runsettings.loss_beta*torch.max(torch.tensor(0.0),0.10-Efficiency_beam_intensity)#+500*loss_local_phase_std +10*(target_loss/0.0005)*loss_spots+10000*loss_spots_phase#20*(target_loss/0.005)*torch.mean(torch.abs(err))#loss_complexoverlap+torch.max(torch.tensor(0.0),0.30-Efficiency_beam_intensity)*1
             #loss= loss_complexoverlap*((1-Efficiency_beam_intensity))**50
             # if epoch==2000:
             #     for g in  optimizer.param_groups:

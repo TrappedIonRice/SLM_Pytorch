@@ -378,7 +378,7 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
     correction = np.loadtxt(phase_path)
     grady = mod.gradient(mod.beams[0][1], angle=0.20* np.pi / 180, axis=0, wavelength=wavelength) #1315#yangle=0.12 #yangle=0.1310 for expt
     gradx = mod.gradient(mod.beams[0][1], angle=-0.27* np.pi / 180, axis=1, wavelength=wavelength) #-0.12 original
-    only_gradmask_and_corr=False
+    only_gradmask_and_corr=True
     #temnm = mod.temnm(mod.beams[0][1], n=1, m=1)
     #temnm[25:,25:]=temnm[:-25,:-25]
     # gradx=rotate(g)
@@ -626,13 +626,15 @@ def create_phase(wavelength=411, phases = (0.,0.,0.,0.),amps=(1.,1.,1.,1.)):
 
     if only_gradmask_and_corr:
         wu_1x4_full=np.load(runsettings.directory_SLM_computation + r'\images\wu_1x4_full.npy')
-    lens_phase=mod.lens_correction((1024,1272),f_x=-500,f_y=50000)
-    mod.add_phase(lens_phase)
+    # lens_phase=mod.lens_correction((1024,1272),f_x=-500,f_y=-5000000)
+    # lens_phase=scipy.ndimage.shift(lens_phase, shift=(20, 20), order=0)
+    # mod.add_phase(lens_phase)
     ##Not saving for now.
     np.save(runsettings.directory_SLM_computation + r'\images\wu_1x4_full.npy', wu_1x4_full)
     # np.save(r'curvature_plots/curvature.npy', global_variables.curvature)
     # np.save(r'curvature_plots/final_eff_curvature.npy',global_variables.final_eff_curvature)
     # np.save(r'curvature_plots/final_ion_fidelity_curvature.npy', global_variables.final_ion_fidelity_curvature)
+    #Shifting the applied image
     wu_1x4_full = scipy.ndimage.shift(wu_1x4_full, shift=(20,20), order=0)
 
     if plotshow:

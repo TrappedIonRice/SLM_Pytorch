@@ -81,6 +81,9 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     global Maximum_possible_efficiency_complex
 
     global start_phase_curve
+    global start_phase_choice
+    global start_phase_rand
+
     global Timestampstart
 
     global waist_scale
@@ -177,7 +180,7 @@ def init(serialcounter1=None,serialcounter2=None,serialcounter3=None,serialcount
     if not os.path.exists(final_measures_dst+'/'+'final_measures_grad_pattern_'+str(pattern_num)+'.txt'):
         open(final_measures_dst+'/'+'final_measures_grad_pattern_'+str(pattern_num)+'.txt', 'w').close()  # Create empty file
 
-    plot_images_global=True
+    plot_images_global=False
 
 
     print(f"[Init] Taskid: {task_id}")
@@ -302,7 +305,9 @@ def storedata():
         'amps_current_std': to_serializable(amps_current_std),
         'Method': to_serializable(method),
         'Curvature': to_serializable(curvature),
+        'start_phase_choice': to_serializable(start_phase_choice),
         'start_phase_curve': to_serializable(start_phase_curve),
+        'start_phase_rand': to_serializable(start_phase_rand),
         'Learning_rate': to_serializable(learning_rate),
         'Exp_amp_wu': to_serializable(exp_amp_global_wu),
         'Exp_phase_wu': to_serializable(exp_phase_global_wu),

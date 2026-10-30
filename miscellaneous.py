@@ -494,7 +494,10 @@ def plot_fidelity_vs_efficiency_old(jsonl_path='JSONoutput/data_storage_zero_cur
             # loss_spots_each_curve.append(loss_spots)
             # loss_local_std_each_curve.append(loss_local_phase_std)
             # loss_spots_phase_each_curve.append(loss_spots_phase)
-            fids_last_each_curve.append(fids[-1])
+            if len(fids) > 0:
+                fids_last_each_curve.append(fids[-1])
+            else:
+                continue
 
             fids_each_curve.extend(fids)
             effs_each_curve.extend(effs)
@@ -548,7 +551,7 @@ def plot_fidelity_vs_efficiency_old(jsonl_path='JSONoutput/data_storage_zero_cur
     # plt.show()
     data = []
     num=0
-    y_min, y_max = 0.999, 1.0  # Adjust these to crop your Y-axis
+    y_min, y_max = 0.998, 1.0  # Adjust these to crop your Y-axis
 
     X, Y, Z = [], [], []
     for curvature_val, group in grouped:
